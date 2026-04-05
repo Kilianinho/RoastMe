@@ -69,7 +69,7 @@ export default function LandingScreen(): React.JSX.Element {
     const trimmed = roastUsername.trim().toLowerCase();
     if (!trimmed) return;
     // Public route — no authentication required.
-    router.push(`/roast/${trimmed}` as never);
+    router.push(`/roast/${trimmed}?t=${Date.now()}` as never);
   };
 
   const handleSignIn = (): void => {

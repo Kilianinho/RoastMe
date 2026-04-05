@@ -104,7 +104,7 @@ function LoadingScreen(): React.ReactElement {
  * a persistent UUID stored in AsyncStorage.
  */
 export default function RoastPage(): React.ReactElement {
-  const { username } = useLocalSearchParams<{ username: string }>();
+  const { username, t: sessionTimestamp } = useLocalSearchParams<{ username: string; t?: string }>();
   const { t } = useTranslation();
   const navigation = useNavigation();
 
@@ -158,9 +158,13 @@ export default function RoastPage(): React.ReactElement {
     store.reset();
     hasSubmitted.current = false;
     honeypotRef.current = '';
+    setPendingValue(null);
+    setPendingLabel(null);
     createSession(username);
+    // sessionTimestamp changes on every navigation, forcing re-init
+    // even when roasting the same username again.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [username]);
+  }, [username, sessionTimestamp]);
 
   // Reset pending selection when the question changes
   useEffect(() => {
