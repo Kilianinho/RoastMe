@@ -182,7 +182,7 @@ export function useRoastSession(): UseRoastSessionReturn {
           .select('id, display_name, username, is_suspended, deleted_at')
           .eq('username', username.toLowerCase())
           .is('deleted_at', null)
-          .single();
+          .maybeSingle();
 
         if (profileError || !profileData) {
           const err: RoastSessionError = {

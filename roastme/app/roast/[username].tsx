@@ -56,15 +56,25 @@ const QUESTION_COUNT = 10;
 
 interface ErrorScreenProps {
   message: string;
+  onGoBack?: () => void;
 }
 
-function ErrorScreen({ message }: ErrorScreenProps): React.ReactElement {
+function ErrorScreen({ message, onGoBack }: ErrorScreenProps): React.ReactElement {
   const { t } = useTranslation();
   return (
     <SafeAreaView style={styles.centerContainer}>
       <Text style={styles.errorEmoji}>😬</Text>
       <Text style={styles.errorTitle}>{message}</Text>
-      <Text style={styles.errorSubtitle}>{t('common.retry')}</Text>
+      {onGoBack && (
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={onGoBack}
+          accessibilityLabel={t('common.back')}
+          accessibilityRole="button"
+        >
+          <Text style={styles.backButtonText}>{t('common.back')}</Text>
+        </TouchableOpacity>
+      )}
     </SafeAreaView>
   );
 }
@@ -243,6 +253,7 @@ export default function RoastPage(): React.ReactElement {
     return (
       <ErrorScreen
         message={sessionError?.message ?? t('errors.profileNotFound')}
+        onGoBack={() => navigation.goBack()}
       />
     );
   }
@@ -407,6 +418,19 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.md,
     color: colors.textSecondary,
     textAlign: 'center',
+  },
+  backButton: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    marginTop: spacing.md,
+  },
+  backButtonText: {
+    fontFamily: typography.fontBody,
+    fontSize: typography.sizes.md,
+    color: colors.textPrimary,
+    fontWeight: '600',
   },
   // --
   // Loading screen
