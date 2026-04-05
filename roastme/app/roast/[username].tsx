@@ -156,6 +156,8 @@ export default function RoastPage(): React.ReactElement {
       return;
     }
     store.reset();
+    hasSubmitted.current = false;
+    honeypotRef.current = '';
     createSession(username);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [username]);
