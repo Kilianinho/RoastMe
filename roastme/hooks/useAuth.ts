@@ -32,6 +32,26 @@ export interface UseAuthReturn {
   signInWithGoogle: () => Promise<void>;
   signInWithApple: () => Promise<void>;
   signInWithEmail: (email: string) => Promise<void>;
+  /**
+   * Creates a new account with email and password.
+   * Supabase will send a confirmation email; the session is returned when
+   * email confirmation is not required (or on auto-confirm in dev).
+   *
+   * @param email - The user's email address.
+   * @param password - Minimum 6 characters (Supabase default).
+   * @returns The new session, or null if email confirmation is pending.
+   * @throws If Supabase returns an error (e.g. email already registered).
+   */
+  signUpWithPassword: (email: string, password: string) => Promise<Session | null>;
+  /**
+   * Signs in an existing user with email and password.
+   *
+   * @param email - The user's email address.
+   * @param password - The user's password.
+   * @returns The authenticated session.
+   * @throws If credentials are invalid or Supabase returns an error.
+   */
+  signInWithPassword: (email: string, password: string) => Promise<Session | null>;
   signOut: () => Promise<void>;
 
   // Profile actions
@@ -107,6 +127,40 @@ export function useAuth(): UseAuthReturn {
     await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
     // Session picked up by onAuthStateChange listener in authStore.
   }, []);
+
+  // ─── Password: sign up ──────────────────────────────────────────────────────
+
+  const signUpWithPassword = useCallback(
+    async (email: string, password: string): Promise<Session | null> => {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: buildRedirectUri(),
+        },
+      });
+
+      if (error) throw new Error(error.message);
+      // data.session is null when email confirmation is required.
+      return data.session;
+    },
+    [],
+  );
+
+  // ─── Password: sign in ──────────────────────────────────────────────────────
+
+  const signInWithPassword = useCallback(
+    async (email: string, password: string): Promise<Session | null> => {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw new Error(error.message);
+      return data.session;
+    },
+    [],
+  );
 
   // ─── Magic link ─────────────────────────────────────────────────────────────
 
@@ -191,6 +245,8 @@ export function useAuth(): UseAuthReturn {
     signInWithGoogle,
     signInWithApple,
     signInWithEmail,
+    signUpWithPassword,
+    signInWithPassword,
     signOut,
     createProfile,
     checkUsernameAvailability,

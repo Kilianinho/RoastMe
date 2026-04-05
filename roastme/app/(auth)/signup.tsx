@@ -23,8 +23,25 @@ import { useAuth } from '@/hooks/useAuth';
 import i18n from '@/lib/i18n';
 import type { Gender } from '@/types/database';
 
-// ─── Validation schema ───────────────────────────────────────────────────────
+// ─── Validation schemas ──────────────────────────────────────────────────────
 
+/** Step 1: email + password registration */
+const authSchema = z
+  .object({
+    email: z.string().email({ error: i18n.t('auth.emailPlaceholder') }),
+    password: z
+      .string()
+      .min(6, { error: i18n.t('auth.passwordTooShort') }),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    error: i18n.t('auth.passwordMismatch'),
+    path: ['confirmPassword'],
+  });
+
+type AuthFormValues = z.infer<typeof authSchema>;
+
+/** Step 2: profile form */
 const signupSchema = z.object({
   display_name: z
     .string()
@@ -63,14 +80,50 @@ const GENDER_OPTIONS: GenderOption[] = [
 ];
 
 /**
- * Profile creation screen shown after first-time OAuth / magic link auth.
- * Uses React Hook Form + Zod for validation.
- * Debounces username availability check against Supabase.
+ * Signup screen — two-step flow for new users.
+ *
+ * Step 1: Authentication — email/password registration OR OAuth.
+ *         Once auth succeeds, move to step 2.
+ * Step 2: Profile creation — display_name, username, gender, looking_for.
+ *         Same form as before; uses React Hook Form + Zod.
  */
 export default function SignupScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const router = useRouter();
-  const { createProfile, checkUsernameAvailability } = useAuth();
+  const {
+    signUpWithPassword,
+    signInWithGoogle,
+    signInWithApple,
+    createProfile,
+    checkUsernameAvailability,
+    session,
+  } = useAuth();
+
+  // Track which step we are on. If the user already has a session when they land
+  // here (e.g. they completed OAuth from within the signup flow), skip straight
+  // to step 2 — AuthGate will have sent them here because profile is missing.
+  const [step, setStep] = useState<1 | 2>(session ? 2 : 1);
+
+  // ─── Step 1 state ────────────────────────────────────────────────────────────
+
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [showConfirm, setShowConfirm] = useState<boolean>(false);
+  const [isRegistering, setIsRegistering] = useState<boolean>(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState<boolean>(false);
+  const [isAppleLoading, setIsAppleLoading] = useState<boolean>(false);
+
+  const authAnyLoading = isRegistering || isGoogleLoading || isAppleLoading;
+
+  const {
+    control: authControl,
+    handleSubmit: handleAuthSubmit,
+    formState: { errors: authErrors },
+  } = useForm<AuthFormValues>({
+    resolver: zodResolver(authSchema),
+    defaultValues: { email: '', password: '', confirmPassword: '' },
+  });
+
+  // ─── Step 2 state ────────────────────────────────────────────────────────────
 
   const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>('idle');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -126,9 +179,68 @@ export default function SignupScreen(): React.JSX.Element {
     return () => clearTimeout(timer);
   }, [watchedUsername, checkAvailability]);
 
-  // ─── Submit handler ───────────────────────────────────────────────────────
+  // ─── Step 1: registration handlers ───────────────────────────────────────
 
-  const onSubmit = async (values: SignupFormValues): Promise<void> => {
+  const onAuthSubmit = async (values: AuthFormValues): Promise<void> => {
+    setIsRegistering(true);
+    try {
+      const newSession = await signUpWithPassword(values.email, values.password);
+      if (newSession) {
+        // Immediate session — move to profile step.
+        setStep(2);
+      } else {
+        // Email confirmation pending — inform the user.
+        Toast.show({
+          type: 'success',
+          text1: t('auth.emailSent'),
+        });
+      }
+    } catch (err) {
+      Toast.show({
+        type: 'error',
+        text1: t('common.error'),
+        text2: err instanceof Error ? err.message : t('errors.unknown'),
+      });
+    } finally {
+      setIsRegistering(false);
+    }
+  };
+
+  const handleGoogleSignUp = async (): Promise<void> => {
+    setIsGoogleLoading(true);
+    try {
+      await signInWithGoogle();
+      // AuthGate will redirect to signup (step 2) once session is set and
+      // profile is still missing. No explicit setStep needed.
+    } catch (err) {
+      Toast.show({
+        type: 'error',
+        text1: t('common.error'),
+        text2: err instanceof Error ? err.message : t('errors.unknown'),
+      });
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
+
+  const handleAppleSignUp = async (): Promise<void> => {
+    setIsAppleLoading(true);
+    try {
+      await signInWithApple();
+    } catch (err) {
+      Toast.show({
+        type: 'error',
+        text1: t('common.error'),
+        text2: err instanceof Error ? err.message : t('errors.unknown'),
+      });
+    } finally {
+      setIsAppleLoading(false);
+    }
+  };
+
+  // ─── Step 2: profile submit ───────────────────────────────────────────────
+
+  const onProfileSubmit = async (values: SignupFormValues): Promise<void> => {
     if (usernameStatus === 'taken' || usernameStatus === 'checking') return;
 
     setIsSubmitting(true);
@@ -186,7 +298,211 @@ export default function SignupScreen(): React.JSX.Element {
     }
   };
 
-  // ─── Render ───────────────────────────────────────────────────────────────
+  // ─── Render — Step 1 ─────────────────────────────────────────────────────
+
+  if (step === 1) {
+    return (
+      <KeyboardAvoidingView
+        style={styles.root}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <Text style={styles.title} accessibilityRole="header">
+            {t('auth.signUpWithPassword')}
+          </Text>
+
+          {/* ── Email field ── */}
+          <View style={styles.fieldGroup}>
+            <Controller
+              control={authControl}
+              name="email"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <TextInput
+                  style={[styles.input, !!authErrors.email && styles.inputError]}
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  placeholder={t('auth.emailPlaceholder')}
+                  placeholderTextColor={colors.textMuted}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  returnKeyType="next"
+                  editable={!authAnyLoading}
+                  accessibilityLabel={t('auth.emailPlaceholder')}
+                />
+              )}
+            />
+            {authErrors.email && (
+              <Text style={styles.errorText}>{authErrors.email.message}</Text>
+            )}
+          </View>
+
+          {/* ── Password field ── */}
+          <View style={styles.fieldGroup}>
+            <View
+              style={[
+                styles.passwordWrapper,
+                !!authErrors.password && styles.inputError,
+              ]}
+            >
+              <Controller
+                control={authControl}
+                name="password"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <TextInput
+                    style={styles.passwordInput}
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    placeholder={t('auth.passwordPlaceholder')}
+                    placeholderTextColor={colors.textMuted}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    returnKeyType="next"
+                    editable={!authAnyLoading}
+                    accessibilityLabel={t('auth.password')}
+                  />
+                )}
+              />
+              <TouchableOpacity
+                style={styles.eyeButton}
+                onPress={() => setShowPassword((v) => !v)}
+                accessibilityLabel={showPassword ? 'Masquer' : 'Afficher'}
+              >
+                <Ionicons
+                  name={showPassword ? 'eye-off' : 'eye'}
+                  size={20}
+                  color={colors.textMuted}
+                />
+              </TouchableOpacity>
+            </View>
+            {authErrors.password && (
+              <Text style={styles.errorText}>{authErrors.password.message}</Text>
+            )}
+          </View>
+
+          {/* ── Confirm password field ── */}
+          <View style={styles.fieldGroup}>
+            <View
+              style={[
+                styles.passwordWrapper,
+                !!authErrors.confirmPassword && styles.inputError,
+              ]}
+            >
+              <Controller
+                control={authControl}
+                name="confirmPassword"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <TextInput
+                    style={styles.passwordInput}
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    placeholder={t('auth.confirmPassword')}
+                    placeholderTextColor={colors.textMuted}
+                    secureTextEntry={!showConfirm}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    returnKeyType="done"
+                    onSubmitEditing={handleAuthSubmit(onAuthSubmit)}
+                    editable={!authAnyLoading}
+                    accessibilityLabel={t('auth.confirmPassword')}
+                  />
+                )}
+              />
+              <TouchableOpacity
+                style={styles.eyeButton}
+                onPress={() => setShowConfirm((v) => !v)}
+                accessibilityLabel={showConfirm ? 'Masquer' : 'Afficher'}
+              >
+                <Ionicons
+                  name={showConfirm ? 'eye-off' : 'eye'}
+                  size={20}
+                  color={colors.textMuted}
+                />
+              </TouchableOpacity>
+            </View>
+            {authErrors.confirmPassword && (
+              <Text style={styles.errorText}>{authErrors.confirmPassword.message}</Text>
+            )}
+          </View>
+
+          {/* ── Register button ── */}
+          <TouchableOpacity
+            style={[styles.submitButton, authAnyLoading && styles.submitButtonDisabled]}
+            onPress={handleAuthSubmit(onAuthSubmit)}
+            disabled={authAnyLoading}
+            accessibilityLabel={t('auth.signUpWithPassword')}
+            accessibilityRole="button"
+          >
+            {isRegistering ? (
+              <ActivityIndicator size="small" color={colors.textPrimary} />
+            ) : (
+              <Text style={styles.submitButtonText}>{t('auth.signUpWithPassword')}</Text>
+            )}
+          </TouchableOpacity>
+
+          {/* ── Divider ── */}
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>{t('auth.divider')}</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* ── OAuth ── */}
+          <View style={styles.oauthSection}>
+            <TouchableOpacity
+              style={styles.oauthButton}
+              onPress={handleGoogleSignUp}
+              disabled={authAnyLoading}
+              accessibilityLabel={t('auth.continueGoogle')}
+              accessibilityRole="button"
+            >
+              {isGoogleLoading ? (
+                <ActivityIndicator size="small" color={colors.textMuted} />
+              ) : (
+                <Ionicons name="logo-google" size={20} color="#DB4437" />
+              )}
+              <Text style={styles.oauthButtonText}>{t('auth.continueGoogle')}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.oauthButton}
+              onPress={handleAppleSignUp}
+              disabled={authAnyLoading}
+              accessibilityLabel={t('auth.continueApple')}
+              accessibilityRole="button"
+            >
+              {isAppleLoading ? (
+                <ActivityIndicator size="small" color={colors.textMuted} />
+              ) : (
+                <Ionicons name="logo-apple" size={22} color="#000000" />
+              )}
+              <Text style={styles.oauthButtonText}>{t('auth.continueApple')}</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* ── Login link ── */}
+          <TouchableOpacity
+            style={styles.loginLink}
+            onPress={() => router.push('/(auth)/login')}
+            accessibilityLabel={t('auth.hasAccount')}
+            accessibilityRole="link"
+          >
+            <Text style={styles.loginLinkText}>{t('auth.hasAccount')}</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    );
+  }
+
+  // ─── Render — Step 2 (profile form) ──────────────────────────────────────
 
   return (
     <KeyboardAvoidingView
@@ -260,7 +576,9 @@ export default function SignupScreen(): React.JSX.Element {
           )}
           {renderUsernameStatus()}
           {errors.username && (
-            <Text style={styles.errorText}>{t(errors.username.message ?? 'signup.usernameInvalid')}</Text>
+            <Text style={styles.errorText}>
+              {t(errors.username.message ?? 'signup.usernameInvalid')}
+            </Text>
           )}
         </View>
 
@@ -344,7 +662,7 @@ export default function SignupScreen(): React.JSX.Element {
             (isSubmitting || usernameStatus === 'taken' || usernameStatus === 'checking') &&
               styles.submitButtonDisabled,
           ]}
-          onPress={handleSubmit(onSubmit)}
+          onPress={handleSubmit(onProfileSubmit)}
           disabled={isSubmitting || usernameStatus === 'taken' || usernameStatus === 'checking'}
           accessibilityLabel={t('signup.continue')}
           accessibilityRole="button"
@@ -415,6 +733,29 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
 
+  // Password fields
+  passwordWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    minHeight: 52,
+  },
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    fontFamily: typography.fontBody,
+    fontSize: typography.sizes.md,
+    color: colors.textPrimary,
+  },
+  eyeButton: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+  },
+
   // Username preview & status
   linkPreview: {
     fontFamily: typography.fontMono,
@@ -461,6 +802,46 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
+  // Divider
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: spacing.lg,
+    gap: spacing.sm,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.surfaceBorder,
+  },
+  dividerText: {
+    fontFamily: typography.fontBody,
+    fontSize: typography.sizes.sm,
+    color: colors.textMuted,
+  },
+
+  // OAuth
+  oauthSection: {
+    gap: spacing.sm,
+  },
+  oauthButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
+    minHeight: 52,
+  },
+  oauthButtonText: {
+    fontFamily: typography.fontBody,
+    fontSize: typography.sizes.md,
+    color: '#1A1A1A',
+    fontWeight: '600',
+  },
+
   // Submit
   submitButton: {
     backgroundColor: colors.primary,
@@ -479,5 +860,18 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.md,
     fontWeight: '700',
     color: colors.textPrimary,
+  },
+
+  // Login link
+  loginLink: {
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    marginTop: spacing.lg,
+  },
+  loginLinkText: {
+    fontFamily: typography.fontBody,
+    fontSize: typography.sizes.md,
+    color: colors.primary,
+    fontWeight: '600',
   },
 });

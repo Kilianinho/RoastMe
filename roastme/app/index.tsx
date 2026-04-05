@@ -1,12 +1,15 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
+  TextInput,
   TouchableOpacity,
   StyleSheet,
   Animated,
   SafeAreaView,
   Dimensions,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
@@ -16,12 +19,19 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 /**
  * Landing / onboarding screen — the first thing a new (unauthenticated) user sees.
- * The tagline fades and slides in after mount to create a subtle hero effect.
- * Routing from here goes to (auth)/login for all entry points.
+ *
+ * Three distinct CTAs:
+ *   1. "Créer mon profil"           → /(auth)/signup  (new user flow)
+ *   2. "J'ai un lien de roast"      → inline username input → /roast/[username]
+ *   3. "Déjà un compte ? Se connecter" → /(auth)/login (returning user)
  */
 export default function LandingScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const router = useRouter();
+
+  // ─── Roast-link inline input state ──────────────────────────────────────────
+  const [showRoastInput, setShowRoastInput] = useState<boolean>(false);
+  const [roastUsername, setRoastUsername] = useState<string>('');
 
   // ─── Tagline animation ───────────────────────────────────────────────────────
   const taglineOpacity = useRef(new Animated.Value(0)).current;
@@ -47,13 +57,19 @@ export default function LandingScreen(): React.JSX.Element {
   // ─── Handlers ────────────────────────────────────────────────────────────────
 
   const handleCreateProfile = (): void => {
-    router.push('/(auth)/login');
+    router.push('/(auth)/signup');
   };
 
-  const handleRoastLink = (): void => {
-    // Navigates to login; after auth the deep-link resolver will handle the
-    // roast URL. We keep this as a login entry point for now.
-    router.push('/(auth)/login');
+  const handleRoastLinkToggle = (): void => {
+    setShowRoastInput((v) => !v);
+    setRoastUsername('');
+  };
+
+  const handleGoRoast = (): void => {
+    const trimmed = roastUsername.trim().toLowerCase();
+    if (!trimmed) return;
+    // Public route — no authentication required.
+    router.push(`/roast/${trimmed}` as never);
   };
 
   const handleSignIn = (): void => {
@@ -63,63 +79,103 @@ export default function LandingScreen(): React.JSX.Element {
   // ─── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <SafeAreaView style={styles.root}>
-      {/* Decorative ember glow behind title */}
-      <View style={styles.glowCircle} />
+    <KeyboardAvoidingView
+      style={styles.kav}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <SafeAreaView style={styles.root}>
+        {/* Decorative ember glow behind title */}
+        <View style={styles.glowCircle} />
 
-      <View style={styles.hero}>
-        <Text style={styles.logoText} accessibilityRole="header">
-          ROASTME
-        </Text>
+        <View style={styles.hero}>
+          <Text style={styles.logoText} accessibilityRole="header">
+            ROASTME
+          </Text>
 
-        <Animated.Text
-          style={[
-            styles.tagline,
-            { opacity: taglineOpacity, transform: [{ translateY: taglineTranslateY }] },
-          ]}
-        >
-          {t('onboarding.tagline')}
-        </Animated.Text>
-      </View>
+          <Animated.Text
+            style={[
+              styles.tagline,
+              { opacity: taglineOpacity, transform: [{ translateY: taglineTranslateY }] },
+            ]}
+          >
+            {t('onboarding.tagline')}
+          </Animated.Text>
+        </View>
 
-      <View style={styles.ctaSection}>
-        {/* Primary CTA */}
-        <TouchableOpacity
-          style={styles.primaryButton}
-          onPress={handleCreateProfile}
-          accessibilityLabel={t('onboarding.createProfile')}
-          accessibilityRole="button"
-        >
-          <Text style={styles.primaryButtonText}>{t('onboarding.createProfile')}</Text>
-        </TouchableOpacity>
+        <View style={styles.ctaSection}>
+          {/* Primary CTA — new user signup */}
+          <TouchableOpacity
+            style={styles.primaryButton}
+            onPress={handleCreateProfile}
+            accessibilityLabel={t('onboarding.createProfile')}
+            accessibilityRole="button"
+          >
+            <Text style={styles.primaryButtonText}>{t('onboarding.createProfile')}</Text>
+          </TouchableOpacity>
 
-        {/* Secondary CTA — have a roast link */}
-        <TouchableOpacity
-          style={styles.secondaryButton}
-          onPress={handleRoastLink}
-          accessibilityLabel={t('onboarding.haveLink')}
-          accessibilityRole="button"
-        >
-          <Text style={styles.secondaryButtonText}>{t('onboarding.haveLink')}</Text>
-        </TouchableOpacity>
+          {/* Secondary CTA — have a roast link */}
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={handleRoastLinkToggle}
+            accessibilityLabel={t('onboarding.haveLink')}
+            accessibilityRole="button"
+          >
+            <Text style={styles.secondaryButtonText}>{t('onboarding.haveLink')}</Text>
+          </TouchableOpacity>
 
-        {/* Sign-in link */}
-        <TouchableOpacity
-          onPress={handleSignIn}
-          accessibilityLabel={t('onboarding.alreadyAccount')}
-          accessibilityRole="link"
-          style={styles.signinLink}
-        >
-          <Text style={styles.signinLinkText}>{t('onboarding.alreadyAccount')}</Text>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+          {/* Inline roast-link input (no auth required) */}
+          {showRoastInput && (
+            <View style={styles.roastInputGroup}>
+              <TextInput
+                style={styles.roastInput}
+                value={roastUsername}
+                onChangeText={setRoastUsername}
+                placeholder={t('onboarding.roastLinkPlaceholder')}
+                placeholderTextColor={colors.textMuted}
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="go"
+                onSubmitEditing={handleGoRoast}
+                autoFocus
+                accessibilityLabel={t('onboarding.roastLinkPlaceholder')}
+              />
+              <TouchableOpacity
+                style={[
+                  styles.goRoastButton,
+                  !roastUsername.trim() && styles.goRoastButtonDisabled,
+                ]}
+                onPress={handleGoRoast}
+                disabled={!roastUsername.trim()}
+                accessibilityLabel={t('onboarding.goRoast')}
+                accessibilityRole="button"
+              >
+                <Text style={styles.goRoastButtonText}>{t('onboarding.goRoast')}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Sign-in link — returning users, more prominent */}
+          <TouchableOpacity
+            onPress={handleSignIn}
+            accessibilityLabel={t('onboarding.alreadyAccount')}
+            accessibilityRole="link"
+            style={styles.signinLink}
+          >
+            <Text style={styles.signinLinkText}>{t('onboarding.alreadyAccount')}</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 }
 
 const GLOW_SIZE = SCREEN_WIDTH * 0.85;
 
 const styles = StyleSheet.create({
+  kav: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   root: {
     flex: 1,
     backgroundColor: colors.background,
@@ -134,7 +190,6 @@ const styles = StyleSheet.create({
     height: GLOW_SIZE,
     borderRadius: GLOW_SIZE / 2,
     backgroundColor: colors.primaryOverlay,
-    // No shadow — pure colour bleed effect for dark-mode.
   },
 
   // Hero section
@@ -198,6 +253,45 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textSecondary,
   },
+
+  // Inline roast-link input
+  roastInputGroup: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  roastInput: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    fontFamily: typography.fontBody,
+    fontSize: typography.sizes.md,
+    color: colors.textPrimary,
+    minHeight: 52,
+  },
+  goRoastButton: {
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 52,
+  },
+  goRoastButtonDisabled: {
+    opacity: 0.45,
+  },
+  goRoastButtonText: {
+    fontFamily: typography.fontBody,
+    fontSize: typography.sizes.md,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+
+  // Sign-in link — more prominent than before
   signinLink: {
     alignItems: 'center',
     paddingVertical: spacing.sm,
@@ -205,8 +299,8 @@ const styles = StyleSheet.create({
   },
   signinLinkText: {
     fontFamily: typography.fontBody,
-    fontSize: typography.sizes.sm,
-    color: colors.textMuted,
-    textDecorationLine: 'underline',
+    fontSize: typography.sizes.md,
+    color: colors.textSecondary,
+    fontWeight: '600',
   },
 });

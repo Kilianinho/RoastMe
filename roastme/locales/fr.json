@@ -23,7 +23,9 @@
     "tagline": "Découvre ce que tes amis pensent vraiment de toi",
     "createProfile": "Créer mon profil",
     "haveLink": "J'ai un lien de roast",
-    "alreadyAccount": "Déjà un compte ? Se connecter"
+    "alreadyAccount": "Déjà un compte ? Se connecter",
+    "roastLinkPlaceholder": "Entrer un pseudo (ex: kilian)",
+    "goRoast": "Roaster !"
   },
   "auth": {
     "login": "Se connecter",
@@ -35,7 +37,16 @@
     "emailSent": "Lien magique envoyé ! Vérifie ta boîte mail.",
     "logout": "Se déconnecter",
     "divider": "ou",
-    "connecting": "Connexion en cours..."
+    "connecting": "Connexion en cours...",
+    "password": "Mot de passe",
+    "confirmPassword": "Confirmer le mot de passe",
+    "passwordPlaceholder": "••••••••",
+    "signInWithPassword": "Se connecter",
+    "signUpWithPassword": "Créer un compte",
+    "noAccount": "Pas de compte ? Créer un profil",
+    "hasAccount": "Déjà un compte ? Se connecter",
+    "passwordTooShort": "Minimum 6 caractères",
+    "passwordMismatch": "Les mots de passe ne correspondent pas"
   },
   "signup": {
     "title": "Crée ton profil",

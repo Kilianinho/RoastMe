@@ -23,7 +23,9 @@
     "tagline": "Find out what your friends really think about you",
     "createProfile": "Create my profile",
     "haveLink": "I have a roast link",
-    "alreadyAccount": "Already have an account? Sign in"
+    "alreadyAccount": "Already have an account? Sign in",
+    "roastLinkPlaceholder": "Enter a username (e.g. john)",
+    "goRoast": "Roast!"
   },
   "auth": {
     "login": "Sign in",
@@ -35,7 +37,16 @@
     "emailSent": "Magic link sent! Check your inbox.",
     "logout": "Sign out",
     "divider": "or",
-    "connecting": "Signing in..."
+    "connecting": "Signing in...",
+    "password": "Password",
+    "confirmPassword": "Confirm password",
+    "passwordPlaceholder": "••••••••",
+    "signInWithPassword": "Sign in",
+    "signUpWithPassword": "Create account",
+    "noAccount": "No account? Create a profile",
+    "hasAccount": "Already have an account? Sign in",
+    "passwordTooShort": "Minimum 6 characters",
+    "passwordMismatch": "Passwords don't match"
   },
   "signup": {
     "title": "Create your profile",
