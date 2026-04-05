@@ -19,6 +19,7 @@ import { useRoastStore } from '@/stores/roastStore';
 import { useAuthStore } from '@/stores/authStore';
 import { generateUUID } from '@/utils/uuid';
 import { logger } from '@/utils/logger';
+import { getFallbackQuestions } from '@/constants/questions';
 import type { Profile, Question } from '@/types/database';
 
 /** Key used to persist the anonymous roaster session ID across app restarts. */
@@ -125,10 +126,10 @@ async function fetchQuestions(locale: string): Promise<Question[]> {
   }
 
   if (pool.length === 0) {
-    throw {
-      code: 'NO_QUESTIONS',
-      message: 'No active questions found',
-    } satisfies RoastSessionError;
+    logger.warn('useRoastSession: no questions from Supabase, using offline fallback', {
+      locale,
+    });
+    pool = getFallbackQuestions(locale);
   }
 
   // Fisher-Yates shuffle then take QUESTION_COUNT
@@ -368,7 +369,7 @@ export function useRoastSession(): UseRoastSessionReturn {
       // Trigger aggregate-roast Edge Function (fire-and-forget — DB trigger handles it)
       // The edge function is called asynchronously; we don't block on it.
       supabase.functions
-        .invoke('aggregate-roast', { body: { session_id: sessionId } })
+        .invoke('aggregate-roast', { body: { roast_session_id: sessionId } })
         .catch((fnErr: unknown) => {
           logger.warn('useRoastSession: aggregate-roast invocation failed', {
             error: String(fnErr),

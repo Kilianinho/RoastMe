@@ -136,7 +136,7 @@ export default function LoginScreen(): React.JSX.Element {
         {/* ── Divider ── */}
         <View style={styles.dividerRow}>
           <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>ou</Text>
+          <Text style={styles.dividerText}>{t('auth.divider')}</Text>
           <View style={styles.dividerLine} />
         </View>
 

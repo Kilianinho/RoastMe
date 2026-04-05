@@ -67,7 +67,7 @@ export function MatchCard({ match, onLike, onPass }: MatchCardProps): React.Reac
 
       {match.common_answers > 0 && (
         <Text style={styles.commonTrait} numberOfLines={2}>
-          {t('matches.commonTrait', { trait: getCommonTraitLabel(match.common_answers) })}
+          {t('matches.commonTrait', { trait: getCommonTraitLabel(match.common_answers, t) })}
         </Text>
       )}
 
@@ -75,7 +75,11 @@ export function MatchCard({ match, onLike, onPass }: MatchCardProps): React.Reac
         <Pressable
           style={[styles.actionButton, styles.passButton]}
           onPress={onPass}
-          accessibilityLabel={`Passer ${otherUser?.display_name ?? 'cet utilisateur'}`}
+          accessibilityLabel={
+            otherUser?.display_name
+              ? t('matches.actionPass', { name: otherUser.display_name })
+              : t('matches.actionPassFallback')
+          }
           accessibilityRole="button"
         >
           <Text style={styles.passIcon}>✕</Text>
@@ -84,7 +88,11 @@ export function MatchCard({ match, onLike, onPass }: MatchCardProps): React.Reac
         <Pressable
           style={[styles.actionButton, styles.likeButton]}
           onPress={onLike}
-          accessibilityLabel={`Liker ${otherUser?.display_name ?? 'cet utilisateur'}`}
+          accessibilityLabel={
+            otherUser?.display_name
+              ? t('matches.actionLike', { name: otherUser.display_name })
+              : t('matches.actionLikeFallback')
+          }
           accessibilityRole="button"
         >
           <Text style={styles.likeIcon}>♥</Text>
@@ -105,10 +113,10 @@ function CompatibilityBar({ score }: { score: number }): React.ReactElement {
   );
 }
 
-function getCommonTraitLabel(count: number): string {
-  if (count >= 7) return 'des personnes fun et sociables';
-  if (count >= 5) return 'des personnes créatives';
-  return 'des personnes similaires';
+function getCommonTraitLabel(count: number, t: (key: string) => string): string {
+  if (count >= 7) return t('matches.commonTraitFunSociable');
+  if (count >= 5) return t('matches.commonTraitCreative');
+  return t('matches.commonTraitSimilar');
 }
 
 const styles = StyleSheet.create({

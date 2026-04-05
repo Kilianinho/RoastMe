@@ -16,7 +16,8 @@
     "copied": "Copié !",
     "seeMore": "Voir plus",
     "premium": "Premium",
-    "free": "Gratuit"
+    "free": "Gratuit",
+    "ok": "OK"
   },
   "onboarding": {
     "tagline": "Découvre ce que tes amis pensent vraiment de toi",
@@ -32,7 +33,9 @@
     "magicLink": "Continuer avec un lien magique",
     "emailPlaceholder": "ton@email.com",
     "emailSent": "Lien magique envoyé ! Vérifie ta boîte mail.",
-    "logout": "Se déconnecter"
+    "logout": "Se déconnecter",
+    "divider": "ou",
+    "connecting": "Connexion en cours..."
   },
   "signup": {
     "title": "Crée ton profil",
@@ -95,7 +98,12 @@
     "activityRoast": "Quelqu'un t'a roasté il y a {{time}}",
     "noRoasts": "Personne ne t'a encore roasté",
     "noRoastsSubtitle": "Partage ton lien pour commencer !",
-    "shareLink": "Partager mon lien"
+    "shareLink": "Partager mon lien",
+    "fireScoreVeryHigh": "Tout le monde t'adore, t'es en feu ! 🔥",
+    "fireScoreHigh": "Plutôt bien vu par tes amis",
+    "fireScoreMedium": "Quelques avis mitigés...",
+    "fireScoreLow": "Tes amis te connaissent mal, ou trop bien",
+    "fireScoreVeryLow": "Partage ton lien pour découvrir !"
   },
   "matches": {
     "title": "Matchs",
@@ -108,7 +116,14 @@
     "noMatches": "Pas encore de matchs...",
     "noMatchesSubtitle": "Partage ton lien pour accumuler des réponses !",
     "dailyLimit": "Tu as vu tes {{count}} matchs gratuits du jour",
-    "unlockMore": "Débloquer plus avec Premium"
+    "unlockMore": "Débloquer plus avec Premium",
+    "commonTraitFunSociable": "des personnes fun et sociables",
+    "commonTraitCreative": "des personnes créatives",
+    "commonTraitSimilar": "des personnes similaires",
+    "actionLike": "Liker {{name}}",
+    "actionPass": "Passer {{name}}",
+    "actionLikeFallback": "Liker cet utilisateur",
+    "actionPassFallback": "Passer cet utilisateur"
   },
   "chat": {
     "title": "Messages",
@@ -139,7 +154,8 @@
     "legal": "Légal",
     "termsOfService": "Conditions d'utilisation",
     "privacyPolicy": "Politique de confidentialité",
-    "reportBug": "Signaler un bug"
+    "reportBug": "Signaler un bug",
+    "openSettings": "Ouvrir les réglages"
   },
   "moderation": {
     "report": "Signaler",
@@ -194,6 +210,17 @@
     "daysAgo": "il y a {{count}}j",
     "weeksAgo": "il y a {{count}}sem"
   },
+  "formatters": {
+    "fireLabel90": "Légende vivante",
+    "fireLabel80": "Absolument iconique",
+    "fireLabel70": "Totalement imprévisible",
+    "fireLabel60": "Force tranquille",
+    "fireLabel50": "Fiable comme un golden retriever",
+    "fireLabel40": "Mystère ambulant",
+    "fireLabel30": "Électron libre",
+    "fireLabel20": "Sous-estimé(e)",
+    "fireLabelDefault": "Inclassable"
+  },
   "errors": {
     "network": "Erreur de connexion. Vérifie ta connexion internet.",
     "unknown": "Une erreur inattendue est survenue. Réessaie.",
@@ -202,6 +229,9 @@
     "profileNotFound": "Profil introuvable.",
     "roastSelf": "Tu ne peux pas te roaster toi-même !",
     "rateLimited": "Trop de requêtes. Réessaie dans quelques minutes.",
-    "suspended": "Ton compte est temporairement suspendu."
+    "suspended": "Ton compte est temporairement suspendu.",
+    "notificationsPermissionDenied": "Permissions de notification refusées. Active-les dans les réglages.",
+    "notificationsCannotRevoke": "Pour désactiver complètement les notifications, va dans les réglages de ton téléphone.",
+    "sharingNotAvailable": "Le partage n'est pas disponible sur cet appareil."
   }
 }

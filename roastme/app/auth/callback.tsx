@@ -9,12 +9,14 @@
 import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/authStore';
 import { colors, typography } from '@/constants/theme';
 
 export default function AuthCallbackScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
 
   useEffect(() => {
     handleCallback();
@@ -76,7 +78,7 @@ export default function AuthCallbackScreen() {
   return (
     <View style={styles.container}>
       <ActivityIndicator size="large" color={colors.primary} />
-      <Text style={styles.text}>Connexion en cours...</Text>
+      <Text style={styles.text}>{t('auth.connecting')}</Text>
     </View>
   );
 }

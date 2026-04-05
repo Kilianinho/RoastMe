@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Linking,
@@ -12,6 +12,9 @@ import {
   View,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { File, Paths } from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
+import * as Notifications from 'expo-notifications';
 import i18n from '@/lib/i18n';
 import { colors, typography, spacing, borderRadius } from '@/constants/theme';
 import { useAuthStore } from '@/stores/authStore';
@@ -37,8 +40,42 @@ export default function ProfileScreen(): React.ReactElement {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [matchingEnabled, setMatchingEnabled] = useState(profile?.allow_matching ?? true);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [isDownloadingData, setIsDownloadingData] = useState(false);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [matchesCount, setMatchesCount] = useState<number | null>(null);
+  const [avgCompatibility, setAvgCompatibility] = useState<number | null>(null);
+
+  // ── Seed notification toggle from actual OS permission state ──────────────
+  useEffect(() => {
+    void (async () => {
+      const { status } = await Notifications.getPermissionsAsync();
+      setNotificationsEnabled(status === 'granted');
+    })();
+  }, []);
+
+  // ── Load stats from Supabase ───────────────────────────────────────────────
+  useEffect(() => {
+    if (!profile) return;
+
+    void (async () => {
+      const { data, error } = await supabase
+        .from('matches')
+        .select('compatibility_score')
+        .or(`user_a_id.eq.${profile.id},user_b_id.eq.${profile.id}`)
+        .eq('status', 'matched');
+
+      if (error || !data) return;
+
+      setMatchesCount(data.length);
+      if (data.length > 0) {
+        const sum = data.reduce((acc, row) => acc + row.compatibility_score, 0);
+        setAvgCompatibility(Math.round((sum / data.length) * 100));
+      } else {
+        setAvgCompatibility(0);
+      }
+    })();
+  }, [profile?.id]);
 
   const handleMatchingToggle = async (value: boolean): Promise<void> => {
     setMatchingEnabled(value);
@@ -68,12 +105,125 @@ export default function ProfileScreen(): React.ReactElement {
     );
   };
 
-  const handleDownloadData = (): void => {
-    Alert.alert(
-      t('profile.downloadData'),
-      t('common.loading'),
-      [{ text: t('common.close') }]
-    );
+  const handleNotificationsToggle = async (value: boolean): Promise<void> => {
+    if (value) {
+      // Request permission if toggling on.
+      const { status } = await Notifications.requestPermissionsAsync();
+      const granted = status === 'granted';
+      setNotificationsEnabled(granted);
+
+      if (!granted) {
+        // The OS denied the request — direct the user to system settings.
+        Alert.alert(
+          t('profile.notifications'),
+          t('errors.notificationsPermissionDenied'),
+          [
+            { text: t('common.cancel'), style: 'cancel' },
+            {
+              text: t('profile.openSettings'),
+              onPress: () => void Linking.openSettings(),
+            },
+          ]
+        );
+      } else {
+        Notifications.setNotificationHandler({
+          handleNotification: async () => ({
+            shouldShowAlert: true,
+            shouldPlaySound: true,
+            shouldSetBadge: true,
+            shouldShowBanner: true,
+            shouldShowList: true,
+          }),
+        });
+      }
+    } else {
+      // React Native / Expo cannot programmatically revoke permissions once
+      // granted — only the user can do this from system settings.
+      // We disable the handler so notifications are silently ignored while
+      // the user's session is active, and direct them to settings if they
+      // want to fully revoke.
+      Notifications.setNotificationHandler(null);
+      setNotificationsEnabled(false);
+
+      Alert.alert(
+        t('profile.notifications'),
+        t('errors.notificationsCannotRevoke'),
+        [
+          { text: t('common.ok') },
+          {
+            text: t('profile.openSettings'),
+            onPress: () => void Linking.openSettings(),
+          },
+        ]
+      );
+    }
+  };
+
+  const handleDownloadData = async (): Promise<void> => {
+    if (!profile) return;
+
+    setIsDownloadingData(true);
+    try {
+      // Fetch all data in parallel to minimise latency.
+      const [profileRes, resultsRes, matchesRes, messagesRes] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', profile.id)
+          .single(),
+        supabase
+          .from('roast_results')
+          .select('*, question:questions(*)')
+          .eq('profile_id', profile.id),
+        supabase
+          .from('matches')
+          .select('*')
+          .or(`user_a_id.eq.${profile.id},user_b_id.eq.${profile.id}`),
+        supabase
+          .from('messages')
+          .select('*')
+          .eq('sender_id', profile.id),
+      ]);
+
+      // Surface the first error encountered rather than silently dropping data.
+      const firstError = profileRes.error ?? resultsRes.error ?? matchesRes.error ?? messagesRes.error;
+      if (firstError) throw new Error(firstError.message);
+
+      const exportPayload = {
+        exported_at: new Date().toISOString(),
+        profile: profileRes.data,
+        roast_results: resultsRes.data ?? [],
+        matches: matchesRes.data ?? [],
+        messages: messagesRes.data ?? [],
+      };
+
+      const json = JSON.stringify(exportPayload, null, 2);
+      const filename = `roastme-data-${profile.username}-${Date.now()}.json`;
+      const file = new File(Paths.cache, filename);
+      file.create();
+      file.write(json);
+      const fileUri = file.uri;
+
+      const canShare = await Sharing.isAvailableAsync();
+      if (!canShare) {
+        // Simulator / unsupported platform: inform the user.
+        Alert.alert(t('profile.downloadData'), t('errors.sharingNotAvailable'));
+        return;
+      }
+
+      await Sharing.shareAsync(fileUri, {
+        mimeType: 'application/json',
+        dialogTitle: t('profile.downloadData'),
+        UTI: 'public.json', // iOS only — ignored on Android
+      });
+    } catch (err) {
+      Alert.alert(
+        t('common.error'),
+        err instanceof Error ? err.message : t('errors.unknown')
+      );
+    } finally {
+      setIsDownloadingData(false);
+    }
   };
 
   const handleDeleteAccount = async (): Promise<void> => {
@@ -154,9 +304,15 @@ export default function ProfileScreen(): React.ReactElement {
               label={t('profile.roastsReceived')}
             />
             <View style={styles.statsDivider} />
-            <StatItem value="—" label={t('profile.matchesCount')} />
+            <StatItem
+              value={matchesCount !== null ? matchesCount : '—'}
+              label={t('profile.matchesCount')}
+            />
             <View style={styles.statsDivider} />
-            <StatItem value="—" label={t('profile.avgCompatibility')} />
+            <StatItem
+              value={avgCompatibility !== null ? `${avgCompatibility}%` : '—'}
+              label={t('profile.avgCompatibility')}
+            />
           </View>
         </Card>
 
@@ -170,7 +326,7 @@ export default function ProfileScreen(): React.ReactElement {
             right={
               <Switch
                 value={notificationsEnabled}
-                onValueChange={setNotificationsEnabled}
+                onValueChange={(v) => void handleNotificationsToggle(v)}
                 trackColor={{ false: colors.surfaceBorder, true: colors.primary }}
                 thumbColor={colors.textPrimary}
                 accessibilityLabel={`${t('profile.notifications')}: ${notificationsEnabled ? 'on' : 'off'}`}
@@ -262,7 +418,9 @@ export default function ProfileScreen(): React.ReactElement {
             label={t('profile.downloadData')}
             variant="secondary"
             size="md"
-            onPress={handleDownloadData}
+            onPress={() => void handleDownloadData()}
+            isLoading={isDownloadingData}
+            disabled={isDownloadingData}
             accessibilityLabel={t('profile.downloadData')}
           />
           <Button

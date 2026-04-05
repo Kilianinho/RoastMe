@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { colors, typography, spacing, borderRadius } from '@/constants/theme';
 
 interface ShareCardProps {
@@ -19,7 +20,10 @@ interface ShareCardProps {
  */
 export function ShareCard({ statText, username, link }: ShareCardProps): React.ReactElement {
   return (
-    <View
+    <LinearGradient
+      colors={[colors.primaryLight, colors.primary, colors.primaryDark]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
       style={styles.card}
       accessibilityLabel={`Carte de partage pour @${username}`}
     >
@@ -38,7 +42,7 @@ export function ShareCard({ statText, username, link }: ShareCardProps): React.R
         <Text style={styles.cta}>Découvre ce que tes amis pensent de toi</Text>
         <Text style={styles.link}>{link}</Text>
       </View>
-    </View>
+    </LinearGradient>
   );
 }
 
@@ -49,9 +53,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.xl,
     padding: spacing.lg,
     gap: spacing.md,
-    // Simulates gradient using a rich base color — install expo-linear-gradient
-    // and swap View → LinearGradient for a true gradient effect.
-    backgroundColor: colors.primary,
+    overflow: 'hidden',
   },
   topRow: {
     flexDirection: 'row',

@@ -16,7 +16,8 @@
     "copied": "Copied!",
     "seeMore": "See more",
     "premium": "Premium",
-    "free": "Free"
+    "free": "Free",
+    "ok": "OK"
   },
   "onboarding": {
     "tagline": "Find out what your friends really think about you",
@@ -32,7 +33,9 @@
     "magicLink": "Continue with magic link",
     "emailPlaceholder": "your@email.com",
     "emailSent": "Magic link sent! Check your inbox.",
-    "logout": "Sign out"
+    "logout": "Sign out",
+    "divider": "or",
+    "connecting": "Signing in..."
   },
   "signup": {
     "title": "Create your profile",
@@ -95,7 +98,12 @@
     "activityRoast": "Someone roasted you {{time}} ago",
     "noRoasts": "Nobody has roasted you yet",
     "noRoastsSubtitle": "Share your link to get started!",
-    "shareLink": "Share my link"
+    "shareLink": "Share my link",
+    "fireScoreVeryHigh": "Everyone loves you, you're on fire! 🔥",
+    "fireScoreHigh": "Pretty well liked by your friends",
+    "fireScoreMedium": "A few mixed opinions...",
+    "fireScoreLow": "Your friends barely know you, or know you too well",
+    "fireScoreVeryLow": "Share your link to find out!"
   },
   "matches": {
     "title": "Matches",
@@ -108,7 +116,14 @@
     "noMatches": "No matches yet...",
     "noMatchesSubtitle": "Share your link to accumulate responses!",
     "dailyLimit": "You've seen your {{count}} free matches today",
-    "unlockMore": "Unlock more with Premium"
+    "unlockMore": "Unlock more with Premium",
+    "commonTraitFunSociable": "fun and sociable people",
+    "commonTraitCreative": "creative people",
+    "commonTraitSimilar": "similar people",
+    "actionLike": "Like {{name}}",
+    "actionPass": "Pass {{name}}",
+    "actionLikeFallback": "Like this user",
+    "actionPassFallback": "Pass this user"
   },
   "chat": {
     "title": "Messages",
@@ -139,7 +154,8 @@
     "legal": "Legal",
     "termsOfService": "Terms of Service",
     "privacyPolicy": "Privacy Policy",
-    "reportBug": "Report a bug"
+    "reportBug": "Report a bug",
+    "openSettings": "Open Settings"
   },
   "moderation": {
     "report": "Report",
@@ -194,6 +210,17 @@
     "daysAgo": "{{count}}d ago",
     "weeksAgo": "{{count}}w ago"
   },
+  "formatters": {
+    "fireLabel90": "Living legend",
+    "fireLabel80": "Absolutely iconic",
+    "fireLabel70": "Totally unpredictable",
+    "fireLabel60": "Quiet powerhouse",
+    "fireLabel50": "Reliable as a golden retriever",
+    "fireLabel40": "Walking mystery",
+    "fireLabel30": "Free electron",
+    "fireLabel20": "Underrated",
+    "fireLabelDefault": "Unclassifiable"
+  },
   "errors": {
     "network": "Connection error. Check your internet connection.",
     "unknown": "An unexpected error occurred. Please try again.",
@@ -202,6 +229,9 @@
     "profileNotFound": "Profile not found.",
     "roastSelf": "You can't roast yourself!",
     "rateLimited": "Too many requests. Try again in a few minutes.",
-    "suspended": "Your account is temporarily suspended."
+    "suspended": "Your account is temporarily suspended.",
+    "notificationsPermissionDenied": "Notification permissions denied. Enable them in Settings.",
+    "notificationsCannotRevoke": "To fully disable notifications, go to your phone's Settings.",
+    "sharingNotAvailable": "Sharing is not available on this device."
   }
 }

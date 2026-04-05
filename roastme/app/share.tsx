@@ -9,13 +9,13 @@ import {
   Text,
   View,
 } from 'react-native';
-import * as Clipboard from 'expo-clipboard';
 import * as Sharing from 'expo-sharing';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { colors, typography, spacing, borderRadius } from '@/constants/theme';
 import { useAuthStore } from '@/stores/authStore';
 import { config } from '@/constants/config';
+import { copyToClipboard, shareToWhatsApp, shareToInstagram } from '@/utils/shareLink';
 import { ShareCard } from '@/components/roast/ShareCard';
 import { Button } from '@/components/ui/Button';
 
@@ -47,7 +47,7 @@ export default function ShareScreen(): React.ReactElement {
 
   const handleCopy = useCallback(async (): Promise<void> => {
     try {
-      await Clipboard.setStringAsync(shareLink);
+      await copyToClipboard(shareLink);
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
     } catch {
@@ -61,14 +61,8 @@ export default function ShareScreen(): React.ReactElement {
       label: t('share.shareInstagram'),
       icon: '📸',
       color: '#E1306C',
-      action: async (link) => {
-        const url = `instagram://story-camera`;
-        const canOpen = await Linking.canOpenURL(url);
-        if (canOpen) {
-          await Linking.openURL(url);
-        } else {
-          await handleNativeShare(link, t);
-        }
+      action: async (_link) => {
+        await shareToInstagram(profile?.username ?? '');
       },
     },
     {
@@ -76,15 +70,8 @@ export default function ShareScreen(): React.ReactElement {
       label: t('share.shareWhatsApp'),
       icon: '💬',
       color: '#25D366',
-      action: async (link) => {
-        const text = encodeURIComponent(`${statText}\n\n${link}`);
-        const url = `whatsapp://send?text=${text}`;
-        const canOpen = await Linking.canOpenURL(url);
-        if (canOpen) {
-          await Linking.openURL(url);
-        } else {
-          await handleNativeShare(link, t);
-        }
+      action: async (_link) => {
+        await shareToWhatsApp(profile?.username ?? '', `${statText}\n\n${shareLink}`);
       },
     },
     {

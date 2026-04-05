@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/authStore';
+import { colors } from '@/constants/theme';
 
 interface BlockButtonProps {
   targetUserId: string;
@@ -82,6 +83,6 @@ export function BlockButton({
 
 const styles = StyleSheet.create({
   button: {
-    borderColor: '#EF4444', // colors.error
+    borderColor: colors.error,
   },
 });

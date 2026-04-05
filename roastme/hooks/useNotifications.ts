@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/authStore';
 import { useNotificationStore } from '@/stores/notificationStore';
+import { logger } from '@/utils/logger';
 import type { Notification as AppNotification } from '@/types/database';
 
 // Configure how notifications appear when the app is in the foreground
@@ -36,9 +37,24 @@ export function useNotifications() {
   useEffect(() => {
     if (!profile) return;
 
-    registerForPushNotifications().then((token) => {
-      if (token) {
-        setExpoPushToken(token);
+    registerForPushNotifications().then(async (token) => {
+      if (!token) return;
+
+      setExpoPushToken(token);
+
+      const userId = useAuthStore.getState().user?.id;
+      if (!userId) return;
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({ expo_push_token: token })
+        .eq('id', userId);
+
+      if (error) {
+        logger.warn('useNotifications: failed to save expo_push_token', {
+          error: error.message,
+          userId,
+        });
       }
     });
 

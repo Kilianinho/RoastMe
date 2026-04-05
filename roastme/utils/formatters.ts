@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next';
 import i18n from '@/lib/i18n';
 
 export function formatTimeAgo(dateString: string): string {
@@ -26,14 +27,21 @@ export function formatCompactNumber(num: number): string {
   return `${(num / 1000000).toFixed(1)}M`;
 }
 
-export function getFireScoreLabel(score: number): string {
-  if (score >= 90) return 'Légende vivante';
-  if (score >= 80) return 'Absolument iconique';
-  if (score >= 70) return 'Totalement imprévisible';
-  if (score >= 60) return 'Force tranquille';
-  if (score >= 50) return 'Fiable comme un golden retriever';
-  if (score >= 40) return 'Mystère ambulant';
-  if (score >= 30) return 'Électron libre';
-  if (score >= 20) return 'Sous-estimé(e)';
-  return 'Inclassable';
+/**
+ * Returns a human-readable fire score label for the given score.
+ *
+ * @param score - Fire score (0–100)
+ * @param t - i18next translation function from the calling component
+ * @returns Translated label string
+ */
+export function getFireScoreLabel(score: number, t: TFunction): string {
+  if (score >= 90) return t('formatters.fireLabel90');
+  if (score >= 80) return t('formatters.fireLabel80');
+  if (score >= 70) return t('formatters.fireLabel70');
+  if (score >= 60) return t('formatters.fireLabel60');
+  if (score >= 50) return t('formatters.fireLabel50');
+  if (score >= 40) return t('formatters.fireLabel40');
+  if (score >= 30) return t('formatters.fireLabel30');
+  if (score >= 20) return t('formatters.fireLabel20');
+  return t('formatters.fireLabelDefault');
 }

@@ -13,6 +13,7 @@ import Toast from 'react-native-toast-message';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/authStore';
+import { analytics } from '@/lib/analytics';
 import { colors, typography, spacing, borderRadius } from '@/constants/theme';
 import type { ConsentType } from '@/types/database';
 
@@ -103,6 +104,13 @@ export default function ConsentScreen(): React.JSX.Element {
 
       if (error) {
         throw new Error(error.message);
+      }
+
+      // Enable analytics immediately if the user opted in.
+      // Must happen after the DB write succeeds so consent is durably recorded
+      // before any events are emitted.
+      if (consents.analytics) {
+        analytics.enable();
       }
 
       // Navigate into the main app. The root layout will see the profile is

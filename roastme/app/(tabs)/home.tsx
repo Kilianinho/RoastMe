@@ -45,7 +45,7 @@ export default function HomeScreen(): React.ReactElement {
     setIsRefreshing(false);
   }, [refetch]);
 
-  const fireScoreSubtitle = getFireScoreSubtitle(fireScore);
+  const fireScoreSubtitle = getFireScoreSubtitle(fireScore, t);
   const newRoastCount = profile?.roast_count ?? 0;
 
   return (
@@ -216,12 +216,12 @@ function ErrorState({ message, onRetry, t }: { message: string; onRetry: () => v
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function getFireScoreSubtitle(score: number): string {
-  if (score >= 80) return "Tout le monde t'adore, t'es en feu ! 🔥";
-  if (score >= 60) return "Plutôt bien vu par tes amis";
-  if (score >= 40) return "Quelques avis mitigés...";
-  if (score >= 20) return "Tes amis te connaissent mal, ou trop bien";
-  return "Partage ton lien pour découvrir !";
+function getFireScoreSubtitle(score: number, t: (key: string) => string): string {
+  if (score >= 80) return t('home.fireScoreVeryHigh');
+  if (score >= 60) return t('home.fireScoreHigh');
+  if (score >= 40) return t('home.fireScoreMedium');
+  if (score >= 20) return t('home.fireScoreLow');
+  return t('home.fireScoreVeryLow');
 }
 
 // ─── Styles ──────────────────────────────────────────────────────────────────

@@ -12,6 +12,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { colors, typography, spacing, borderRadius } from '@/constants/theme';
+import { formatTimeAgo } from '@/utils/formatters';
 import { useChat } from '@/hooks/useChat';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
@@ -119,7 +120,7 @@ function ConversationRow({ conversation, onPress }: ConversationRowProps): React
             {otherUser?.display_name ?? '—'}
           </Text>
           {lastMsg && (
-            <Text style={styles.timestamp}>{formatTimestamp(lastMsg.created_at)}</Text>
+            <Text style={styles.timestamp}>{formatTimeAgo(lastMsg.created_at)}</Text>
           )}
         </View>
 
@@ -145,23 +146,6 @@ function EmptyState({ t }: { t: (key: string) => string }): React.ReactElement {
       <Text style={styles.emptySubtitle}>{t('chat.noChatsSubtitle')}</Text>
     </View>
   );
-}
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function formatTimestamp(isoString: string): string {
-  const date = new Date(isoString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60_000);
-
-  if (diffMins < 1) return 'maintenant';
-  if (diffMins < 60) return `${diffMins}min`;
-  const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours}h`;
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays < 7) return `${diffDays}j`;
-  return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
 }
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
