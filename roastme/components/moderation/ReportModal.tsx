@@ -100,7 +100,7 @@ export function ReportModal({
       onRequestClose={handleClose}
       accessibilityViewIsModal
     >
-      <Pressable style={styles.backdrop} onPress={handleClose} accessibilityLabel="Fermer">
+      <Pressable style={styles.backdrop} onPress={handleClose} accessibilityLabel={t('common.close')}>
         <Pressable style={styles.sheet} onPress={() => undefined}>
           <View style={styles.handle} />
 

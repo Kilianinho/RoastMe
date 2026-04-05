@@ -127,7 +127,7 @@ export default function MatchesScreen(): React.ReactElement {
 
 function EmptyState({ t }: { t: (key: string) => string }): React.ReactElement {
   return (
-    <View style={styles.emptyState} accessibilityLabel="Pas encore de matchs">
+    <View style={styles.emptyState} accessibilityLabel={t('matches.noMatches')}>
       <Text style={styles.emptyEmoji}>💔</Text>
       <Text style={styles.emptyTitle}>{t('matches.noMatches')}</Text>
       <Text style={styles.emptySubtitle}>{t('matches.noMatchesSubtitle')}</Text>
@@ -170,7 +170,7 @@ function ErrorState({
         variant="secondary"
         size="sm"
         onPress={onRetry}
-        accessibilityLabel="Réessayer le chargement des matchs"
+        accessibilityLabel={t('matches.retryLoading')}
       />
     </View>
   );

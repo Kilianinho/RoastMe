@@ -47,6 +47,8 @@
     "usernameAvailable": "Disponible !",
     "usernameTaken": "Déjà pris",
     "usernameInvalid": "3-20 caractères, lettres minuscules, chiffres et _",
+    "minChars": "Minimum {{count}} caractères",
+    "maxChars": "Maximum {{count}} caractères",
     "gender": "Genre",
     "genderMale": "Homme",
     "genderFemale": "Femme",
@@ -87,6 +89,7 @@
     "seeCompatibility": "Voir si vous êtes compatibles"
   },
   "home": {
+    "tab": "Accueil",
     "greeting": "Salut {{name}}",
     "newRoasts": "{{count}} nouveaux roasts",
     "fireScore": "Ton score de feu",
@@ -103,7 +106,10 @@
     "fireScoreHigh": "Plutôt bien vu par tes amis",
     "fireScoreMedium": "Quelques avis mitigés...",
     "fireScoreLow": "Tes amis te connaissent mal, ou trop bien",
-    "fireScoreVeryLow": "Partage ton lien pour découvrir !"
+    "fireScoreVeryLow": "Partage ton lien pour découvrir !",
+    "premiumLockedA11y": "Question verrouillée — Premium requis",
+    "notEnoughResponsesA11y": "Pas assez de réponses",
+    "resultsForA11y": "Résultats pour : {{question}}"
   },
   "matches": {
     "title": "Matchs",
@@ -123,7 +129,8 @@
     "actionLike": "Liker {{name}}",
     "actionPass": "Passer {{name}}",
     "actionLikeFallback": "Liker cet utilisateur",
-    "actionPassFallback": "Passer cet utilisateur"
+    "actionPassFallback": "Passer cet utilisateur",
+    "retryLoading": "Réessayer le chargement des matchs"
   },
   "chat": {
     "title": "Messages",
@@ -131,7 +138,8 @@
     "send": "Envoyer",
     "noChats": "Pas encore de conversations",
     "noChatsSubtitle": "Matche avec quelqu'un pour commencer à discuter !",
-    "newMatch": "C'est un match ! Dis bonjour."
+    "newMatch": "C'est un match ! Dis bonjour.",
+    "conversationWith": "Conversation avec {{name}}"
   },
   "profile": {
     "title": "Profil",
@@ -161,6 +169,7 @@
     "report": "Signaler",
     "block": "Bloquer",
     "blockConfirm": "Bloquer {{name}} ? Cette personne ne pourra plus te contacter.",
+    "blockUser": "Bloquer {{name}}",
     "reportReasons": {
       "spam": "Spam",
       "harassment": "Harcèlement",

@@ -47,6 +47,8 @@
     "usernameAvailable": "Available!",
     "usernameTaken": "Already taken",
     "usernameInvalid": "3-20 characters, lowercase letters, numbers and _",
+    "minChars": "Minimum {{count}} characters",
+    "maxChars": "Maximum {{count}} characters",
     "gender": "Gender",
     "genderMale": "Male",
     "genderFemale": "Female",
@@ -87,6 +89,7 @@
     "seeCompatibility": "See if you're compatible"
   },
   "home": {
+    "tab": "Home",
     "greeting": "Hey {{name}}",
     "newRoasts": "{{count}} new roasts",
     "fireScore": "Your fire score",
@@ -103,7 +106,10 @@
     "fireScoreHigh": "Pretty well liked by your friends",
     "fireScoreMedium": "A few mixed opinions...",
     "fireScoreLow": "Your friends barely know you, or know you too well",
-    "fireScoreVeryLow": "Share your link to find out!"
+    "fireScoreVeryLow": "Share your link to find out!",
+    "premiumLockedA11y": "Question locked — Premium required",
+    "notEnoughResponsesA11y": "Not enough responses",
+    "resultsForA11y": "Results for: {{question}}"
   },
   "matches": {
     "title": "Matches",
@@ -123,7 +129,8 @@
     "actionLike": "Like {{name}}",
     "actionPass": "Pass {{name}}",
     "actionLikeFallback": "Like this user",
-    "actionPassFallback": "Pass this user"
+    "actionPassFallback": "Pass this user",
+    "retryLoading": "Retry loading matches"
   },
   "chat": {
     "title": "Messages",
@@ -131,7 +138,8 @@
     "send": "Send",
     "noChats": "No conversations yet",
     "noChatsSubtitle": "Match with someone to start chatting!",
-    "newMatch": "It's a match! Say hello."
+    "newMatch": "It's a match! Say hello.",
+    "conversationWith": "Conversation with {{name}}"
   },
   "profile": {
     "title": "Profile",
@@ -161,6 +169,7 @@
     "report": "Report",
     "block": "Block",
     "blockConfirm": "Block {{name}}? They won't be able to contact you anymore.",
+    "blockUser": "Block {{name}}",
     "reportReasons": {
       "spam": "Spam",
       "harassment": "Harassment",

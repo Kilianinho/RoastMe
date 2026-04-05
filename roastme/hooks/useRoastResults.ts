@@ -76,7 +76,10 @@ export function useRoastResults(): UseRoastResultsReturn {
 
 /**
  * Computes fire score as the average of all top_answer_percentages,
- * scaled to 0-100. Only considers results with a top_answer_percentage.
+ * rounded to the nearest integer.
+ *
+ * Contract: top_answer_percentage is stored as a 0–100 float by the
+ * aggregate-roast Edge Function (e.g. 75.0 means 75%). Do not multiply by 100.
  *
  * @throws Never — returns 0 for empty or null data
  */
@@ -85,8 +88,5 @@ function computeFireScore(results: RoastResult[]): number {
   if (eligible.length === 0) return 0;
 
   const sum = eligible.reduce((acc, r) => acc + (r.top_answer_percentage ?? 0), 0);
-  const mean = sum / eligible.length;
-  // top_answer_percentage is already 0-100 as a float (e.g. 0.75 = 75%)
-  // Handle both representations: if mean <= 1 it's a 0-1 float, otherwise 0-100
-  return Math.round(mean <= 1 ? mean * 100 : mean);
+  return Math.round(sum / eligible.length);
 }

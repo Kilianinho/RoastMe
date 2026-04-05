@@ -96,6 +96,7 @@ interface ConversationRowProps {
 }
 
 function ConversationRow({ conversation, onPress }: ConversationRowProps): React.ReactElement {
+  const { t } = useTranslation();
   const otherUser = conversation.other_user;
   const lastMsg = conversation.lastMessage;
   const unread = conversation.unreadCount;
@@ -104,7 +105,7 @@ function ConversationRow({ conversation, onPress }: ConversationRowProps): React
     <Pressable
       style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
       onPress={onPress}
-      accessibilityLabel={`Conversation avec ${otherUser?.display_name ?? 'un utilisateur'}`}
+      accessibilityLabel={t('chat.conversationWith', { name: otherUser?.display_name ?? '—' })}
       accessibilityRole="button"
     >
       <Avatar
@@ -140,7 +141,7 @@ function ConversationRow({ conversation, onPress }: ConversationRowProps): React
 
 function EmptyState({ t }: { t: (key: string) => string }): React.ReactElement {
   return (
-    <View style={styles.emptyState} accessibilityLabel="Pas de conversations">
+    <View style={styles.emptyState} accessibilityLabel={t('chat.noChats')}>
       <Text style={styles.emptyEmoji}>💬</Text>
       <Text style={styles.emptyTitle}>{t('chat.noChats')}</Text>
       <Text style={styles.emptySubtitle}>{t('chat.noChatsSubtitle')}</Text>

@@ -101,7 +101,7 @@ export default function ShareScreen(): React.ReactElement {
         <Pressable
           style={styles.backButton}
           onPress={() => router.back()}
-          accessibilityLabel="Retour"
+          accessibilityLabel={t('common.back')}
           accessibilityRole="button"
         >
           <Text style={styles.backIcon}>←</Text>
@@ -180,7 +180,7 @@ export default function ShareScreen(): React.ReactElement {
 async function handleNativeShare(link: string, t: (key: string) => string): Promise<void> {
   const isAvailable = await Sharing.isAvailableAsync();
   if (!isAvailable) {
-    Alert.alert(t('common.error'), 'Le partage n\'est pas disponible sur cet appareil.');
+    Alert.alert(t('common.error'), t('errors.sharingNotAvailable'));
     return;
   }
   // expo-sharing primarily shares files; for text/URL sharing use Linking

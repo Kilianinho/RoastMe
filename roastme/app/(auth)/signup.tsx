@@ -20,6 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { config } from '@/constants/config';
 import { colors, typography, spacing, borderRadius } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
+import i18n from '@/lib/i18n';
 import type { Gender } from '@/types/database';
 
 // ─── Validation schema ───────────────────────────────────────────────────────
@@ -27,8 +28,8 @@ import type { Gender } from '@/types/database';
 const signupSchema = z.object({
   display_name: z
     .string()
-    .min(2, 'Minimum 2 caractères')
-    .max(50, 'Maximum 50 caractères')
+    .min(2, { error: i18n.t('signup.minChars', { count: 2 }) })
+    .max(50, { error: i18n.t('signup.maxChars', { count: 50 }) })
     .trim(),
   username: z
     .string()

@@ -21,7 +21,7 @@ function TabIcon({ name, nameFocused, color, focused, badgeCount }: TabIconProps
     <View style={styles.iconWrapper}>
       <Ionicons name={focused ? nameFocused : name} size={24} color={color} />
       {badgeCount !== undefined && badgeCount > 0 && (
-        <View style={styles.badge} accessibilityLabel={`${badgeCount} messages non lus`}>
+        <View style={styles.badge} accessibilityLabel={`${badgeCount}`}>
           <Text style={styles.badgeText}>{badgeCount > 99 ? '99+' : String(badgeCount)}</Text>
         </View>
       )}
@@ -52,29 +52,29 @@ export default function TabLayout(): React.ReactElement {
       <Tabs.Screen
         name="home"
         options={{
-          tabBarLabel: 'Home',
+          tabBarLabel: t('home.tab'),
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name="home-outline" nameFocused="home" color={color} focused={focused} />
           ),
-          tabBarAccessibilityLabel: 'Accueil',
+          tabBarAccessibilityLabel: t('home.tab'),
         }}
       />
 
       <Tabs.Screen
         name="matches"
         options={{
-          tabBarLabel: 'Matchs',
+          tabBarLabel: t('matches.title'),
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name="heart-outline" nameFocused="heart" color={color} focused={focused} />
           ),
-          tabBarAccessibilityLabel: 'Matchs',
+          tabBarAccessibilityLabel: t('matches.title'),
         }}
       />
 
       <Tabs.Screen
         name="chat"
         options={{
-          tabBarLabel: 'Messages',
+          tabBarLabel: t('chat.title'),
           tabBarIcon: ({ color, focused }) => (
             <TabIcon
               name="chatbubble-outline"
@@ -84,18 +84,18 @@ export default function TabLayout(): React.ReactElement {
               badgeCount={unreadTotal}
             />
           ),
-          tabBarAccessibilityLabel: `Messages${unreadTotal > 0 ? `, ${unreadTotal} non lus` : ''}`,
+          tabBarAccessibilityLabel: t('chat.title'),
         }}
       />
 
       <Tabs.Screen
         name="profile"
         options={{
-          tabBarLabel: 'Profil',
+          tabBarLabel: t('profile.title'),
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name="person-outline" nameFocused="person" color={color} focused={focused} />
           ),
-          tabBarAccessibilityLabel: 'Mon profil',
+          tabBarAccessibilityLabel: t('profile.title'),
         }}
       />
     </Tabs>

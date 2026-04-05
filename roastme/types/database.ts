@@ -22,6 +22,12 @@ export interface Profile {
   share_link: string | null;
   allow_matching: boolean;
   last_match_computed_at: string | null;
+  /**
+   * Expo push token registered for this device.
+   * Written by useNotifications on first launch after permission grant.
+   * Requires migration 002_add_expo_push_token.sql.
+   */
+  expo_push_token: string | null;
   deleted_at: string | null;
   created_at: string;
   updated_at: string;

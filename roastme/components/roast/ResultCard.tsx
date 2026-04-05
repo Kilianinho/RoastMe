@@ -40,7 +40,7 @@ export function ResultCard({
   if (isPremiumLocked) {
     return (
       <Card style={styles.card}>
-        <View style={styles.lockedOverlay} accessibilityLabel="Question verrouillée — Premium requis">
+        <View style={styles.lockedOverlay} accessibilityLabel={t('home.premiumLockedA11y')}>
           <Text style={styles.lockIcon}>🔒</Text>
           <Text style={styles.lockedText}>{t('home.premiumLocked')}</Text>
           <Button
@@ -61,7 +61,7 @@ export function ResultCard({
         <Text style={styles.questionText} numberOfLines={2}>
           {question.text}
         </Text>
-        <View style={styles.lockedMinimum} accessibilityLabel="Pas assez de réponses">
+        <View style={styles.lockedMinimum} accessibilityLabel={t('home.notEnoughResponsesA11y')}>
           <Text style={styles.lockIcon}>🔒</Text>
           <Text style={styles.lockedText}>
             {t('home.locked', { count: 3 })}
@@ -79,7 +79,7 @@ export function ResultCard({
         {question.text}
       </Text>
 
-      <View style={styles.barsContainer} accessibilityLabel={`Résultats pour: ${question.text}`}>
+      <View style={styles.barsContainer} accessibilityLabel={t('home.resultsForA11y', { question: question.text })}>
         {sortedOptions.map(({ label, value, percentage, isTop }) => (
           <View key={value} style={styles.barRow}>
             <Text style={styles.optionLabel} numberOfLines={1}>

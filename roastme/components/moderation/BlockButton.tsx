@@ -75,7 +75,7 @@ export function BlockButton({
       size="md"
       onPress={handlePress}
       isLoading={isLoading}
-      accessibilityLabel={`Bloquer ${targetName}`}
+      accessibilityLabel={t('moderation.blockUser', { name: targetName })}
       style={styles.button}
     />
   );

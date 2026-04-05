@@ -157,7 +157,6 @@ async function fetchQuestions(locale: string): Promise<Question[]> {
  */
 export function useRoastSession(): UseRoastSessionReturn {
   const { t } = useTranslation();
-  const store = useRoastStore();
 
   const [status, setStatus] = useState<RoastSessionStatus>('idle');
   const [sessionError, setSessionError] = useState<RoastSessionError | null>(null);
@@ -168,6 +167,11 @@ export function useRoastSession(): UseRoastSessionReturn {
 
   const createSession = useCallback(
     async (username: string): Promise<void> => {
+      // Read store actions via getState() to avoid capturing the store object
+      // reference as a dep — Zustand re-creates the object each render, which
+      // would make this callback a new reference every render and cause loops.
+      const store = useRoastStore.getState();
+
       setStatus('loading');
       setSessionError(null);
 
@@ -290,7 +294,7 @@ export function useRoastSession(): UseRoastSessionReturn {
         setStatus('error');
       }
     },
-    [store, t],
+    [t],
   );
 
   // ---------------------------------------------------------------------------
@@ -298,6 +302,8 @@ export function useRoastSession(): UseRoastSessionReturn {
   // ---------------------------------------------------------------------------
 
   const submitAnswers = useCallback(async (): Promise<void> => {
+    // Same pattern: read store state at call time, not at hook render time.
+    const store = useRoastStore.getState();
     const { sessionId, answers, questions } = store;
 
     if (!sessionId) {
@@ -416,7 +422,7 @@ export function useRoastSession(): UseRoastSessionReturn {
     } finally {
       store.setSubmitting(false);
     }
-  }, [store, t]);
+  }, [t]);
 
   return { status, sessionError, createSession, submitAnswers };
 }
