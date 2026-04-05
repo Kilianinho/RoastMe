@@ -1,8 +1,13 @@
-import React, { useEffect, useState } from 'react';
+// NOTE: Before running this screen, install the image picker package:
+//   npx expo install expo-image-picker
+
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Linking,
   Modal,
+  Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -12,6 +17,7 @@ import {
   View,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import * as ImagePicker from 'expo-image-picker';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as Notifications from 'expo-notifications';
@@ -19,32 +25,116 @@ import i18n from '@/lib/i18n';
 import { colors, typography, spacing, borderRadius } from '@/constants/theme';
 import { useAuthStore } from '@/stores/authStore';
 import { supabase } from '@/lib/supabase';
+import type { Gender } from '@/types/database';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+
+// ─── Constants ───────────────────────────────────────────────────────────────
 
 const LEGAL_URLS = {
   tos: 'https://roast.me/legal/terms',
   privacy: 'https://roast.me/legal/privacy',
 } as const;
 
+const SUPABASE_URL = 'https://hxnndjxqyyfxzxxagpoj.supabase.co';
+
+/** Max characters enforced on the client; mirror these in DB CHECK constraints. */
+const DISPLAY_NAME_MAX = 50;
+const BIO_MAX = 200;
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+interface EditProfileForm {
+  displayName: string;
+  bio: string;
+  gender: Gender | null;
+  lookingFor: Gender[];
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/**
+ * Builds the public CDN URL for a file in Supabase Storage.
+ * The URL format is stable for public buckets; no signed URL needed.
+ */
+function buildAvatarPublicUrl(userId: string): string {
+  return `${SUPABASE_URL}/storage/v1/object/public/avatars/${userId}/avatar.jpg`;
+}
+
+/**
+ * Reads a local file URI as a Uint8Array so we can upload it via the
+ * Supabase JS client, which expects ArrayBuffer/Blob on React Native.
+ */
+async function readImageAsArrayBuffer(uri: string): Promise<ArrayBuffer> {
+  const response = await fetch(uri);
+  return response.arrayBuffer();
+}
+
+/**
+ * Validates the edit-profile form fields.
+ * Returns the first error key (for i18n) or null if valid.
+ */
+function validateEditForm(form: EditProfileForm): string | null {
+  if (!form.displayName.trim()) return 'errors.displayNameRequired';
+  if (form.displayName.trim().length > DISPLAY_NAME_MAX) return 'errors.displayNameTooLong';
+  if ((form.bio ?? '').length > BIO_MAX) return 'errors.bioTooLong';
+  return null;
+}
+
+// ─── Component ───────────────────────────────────────────────────────────────
+
 /**
  * Profile tab screen.
- * Shows user info, stats, settings toggles, premium CTA, and danger zone.
+ *
+ * Features:
+ * - Tappable avatar with camera overlay → opens image picker → uploads to Supabase Storage
+ * - Edit profile modal (display_name, bio, gender, looking_for)
+ * - Stats card (roasts, matches, avg compatibility)
+ * - Settings (notifications, matching, language)
+ * - Premium CTA
+ * - Legal links
+ * - Danger zone (download data, delete account)
  */
 export default function ProfileScreen(): React.ReactElement {
   const { t } = useTranslation();
   const profile = useAuthStore((s) => s.profile);
+  const setProfile = useAuthStore((s) => s.setProfile);
   const signOut = useAuthStore((s) => s.signOut);
 
+  // ── Settings state ────────────────────────────────────────────────────────
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [matchingEnabled, setMatchingEnabled] = useState(profile?.allow_matching ?? true);
+
+  // ── Stats state ───────────────────────────────────────────────────────────
+  const [matchesCount, setMatchesCount] = useState<number | null>(null);
+  const [avgCompatibility, setAvgCompatibility] = useState<number | null>(null);
+
+  // ── Avatar upload state ───────────────────────────────────────────────────
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+
+  // ── Edit profile modal state ──────────────────────────────────────────────
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editForm, setEditForm] = useState<EditProfileForm>({
+    displayName: profile?.display_name ?? '',
+    bio: profile?.bio ?? '',
+    gender: profile?.gender ?? null,
+    lookingFor: profile?.looking_for ?? [],
+  });
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  // ── Delete account modal state ────────────────────────────────────────────
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [isDownloadingData, setIsDownloadingData] = useState(false);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
-  const [matchesCount, setMatchesCount] = useState<number | null>(null);
-  const [avgCompatibility, setAvgCompatibility] = useState<number | null>(null);
+
+  // Keep a ref to the latest profile so async callbacks always read fresh data
+  // without adding `profile` as a dep in useCallback (avoids stale closures).
+  const profileRef = useRef(profile);
+  useEffect(() => {
+    profileRef.current = profile;
+  }, [profile]);
 
   // ── Seed notification toggle from actual OS permission state ──────────────
   useEffect(() => {
@@ -77,17 +167,150 @@ export default function ProfileScreen(): React.ReactElement {
     })();
   }, [profile?.id]);
 
+  // ── Avatar upload ─────────────────────────────────────────────────────────
+
+  const handleAvatarPress = useCallback(async (): Promise<void> => {
+    const current = profileRef.current;
+    if (!current) return;
+
+    // Request media library permission
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert(
+        t('common.error'),
+        t('errors.cameraPermissionDenied'),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          { text: t('profile.openSettings'), onPress: () => void Linking.openSettings() },
+        ]
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (result.canceled || result.assets.length === 0) return;
+
+    const asset = result.assets[0];
+
+    setIsUploadingAvatar(true);
+    try {
+      const arrayBuffer = await readImageAsArrayBuffer(asset.uri);
+
+      const storagePath = `${current.id}/avatar.jpg`;
+
+      // upsert: overwrite if the file already exists
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(storagePath, arrayBuffer, {
+          contentType: 'image/jpeg',
+          upsert: true,
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Cache-bust by appending a timestamp query param so the Image component
+      // doesn't serve the old image from its in-memory cache.
+      const publicUrl = `${buildAvatarPublicUrl(current.id)}?t=${Date.now()}`;
+
+      const { error: dbError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', current.id);
+
+      if (dbError) throw dbError;
+
+      // Optimistically update the Zustand store so the UI reflects immediately
+      setProfile({ ...current, avatar_url: publicUrl });
+    } catch (err) {
+      Alert.alert(
+        t('common.error'),
+        err instanceof Error ? err.message : t('errors.avatarUploadFailed')
+      );
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  }, [t, setProfile]);
+
+  // ── Edit profile modal ────────────────────────────────────────────────────
+
+  const openEditModal = useCallback((): void => {
+    const current = profileRef.current;
+    // Re-seed form with latest profile values each time the modal opens
+    setEditForm({
+      displayName: current?.display_name ?? '',
+      bio: current?.bio ?? '',
+      gender: current?.gender ?? null,
+      lookingFor: current?.looking_for ?? [],
+    });
+    setEditModalVisible(true);
+  }, []);
+
+  const handleSaveProfile = useCallback(async (): Promise<void> => {
+    const current = profileRef.current;
+    if (!current) return;
+
+    const errorKey = validateEditForm(editForm);
+    if (errorKey) {
+      Alert.alert(t('common.error'), t(errorKey));
+      return;
+    }
+
+    setIsSavingProfile(true);
+    try {
+      const updates = {
+        display_name: editForm.displayName.trim(),
+        bio: editForm.bio.trim() || null,
+        gender: editForm.gender,
+        looking_for: editForm.lookingFor,
+      };
+
+      const { error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', current.id);
+
+      if (error) throw error;
+
+      setProfile({ ...current, ...updates });
+      setEditModalVisible(false);
+    } catch (err) {
+      Alert.alert(
+        t('common.error'),
+        err instanceof Error ? err.message : t('errors.profileUpdateFailed')
+      );
+    } finally {
+      setIsSavingProfile(false);
+    }
+  }, [editForm, t, setProfile]);
+
+  const toggleLookingFor = useCallback((value: Gender): void => {
+    setEditForm((prev) => ({
+      ...prev,
+      lookingFor: prev.lookingFor.includes(value)
+        ? prev.lookingFor.filter((g) => g !== value)
+        : [...prev.lookingFor, value],
+    }));
+  }, []);
+
+  // ── Settings handlers ─────────────────────────────────────────────────────
+
   const handleMatchingToggle = async (value: boolean): Promise<void> => {
     setMatchingEnabled(value);
-    if (!profile) return;
+    const current = profileRef.current;
+    if (!current) return;
 
     const { error } = await supabase
       .from('profiles')
       .update({ allow_matching: value })
-      .eq('id', profile.id);
+      .eq('id', current.id);
 
     if (error) {
-      // Revert optimistic update on failure
       setMatchingEnabled(!value);
       Alert.alert(t('common.error'), t('errors.unknown'));
     }
@@ -107,22 +330,17 @@ export default function ProfileScreen(): React.ReactElement {
 
   const handleNotificationsToggle = async (value: boolean): Promise<void> => {
     if (value) {
-      // Request permission if toggling on.
       const { status } = await Notifications.requestPermissionsAsync();
       const granted = status === 'granted';
       setNotificationsEnabled(granted);
 
       if (!granted) {
-        // The OS denied the request — direct the user to system settings.
         Alert.alert(
           t('profile.notifications'),
           t('errors.notificationsPermissionDenied'),
           [
             { text: t('common.cancel'), style: 'cancel' },
-            {
-              text: t('profile.openSettings'),
-              onPress: () => void Linking.openSettings(),
-            },
+            { text: t('profile.openSettings'), onPress: () => void Linking.openSettings() },
           ]
         );
       } else {
@@ -139,9 +357,6 @@ export default function ProfileScreen(): React.ReactElement {
     } else {
       // React Native / Expo cannot programmatically revoke permissions once
       // granted — only the user can do this from system settings.
-      // We disable the handler so notifications are silently ignored while
-      // the user's session is active, and direct them to settings if they
-      // want to fully revoke.
       Notifications.setNotificationHandler(null);
       setNotificationsEnabled(false);
 
@@ -150,43 +365,29 @@ export default function ProfileScreen(): React.ReactElement {
         t('errors.notificationsCannotRevoke'),
         [
           { text: t('common.ok') },
-          {
-            text: t('profile.openSettings'),
-            onPress: () => void Linking.openSettings(),
-          },
+          { text: t('profile.openSettings'), onPress: () => void Linking.openSettings() },
         ]
       );
     }
   };
 
+  // ── Data download ─────────────────────────────────────────────────────────
+
   const handleDownloadData = async (): Promise<void> => {
-    if (!profile) return;
+    const current = profileRef.current;
+    if (!current) return;
 
     setIsDownloadingData(true);
     try {
-      // Fetch all data in parallel to minimise latency.
       const [profileRes, resultsRes, matchesRes, messagesRes] = await Promise.all([
-        supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', profile.id)
-          .single(),
-        supabase
-          .from('roast_results')
-          .select('*, question:questions(*)')
-          .eq('profile_id', profile.id),
-        supabase
-          .from('matches')
-          .select('*')
-          .or(`user_a_id.eq.${profile.id},user_b_id.eq.${profile.id}`),
-        supabase
-          .from('messages')
-          .select('*')
-          .eq('sender_id', profile.id),
+        supabase.from('profiles').select('*').eq('id', current.id).single(),
+        supabase.from('roast_results').select('*, question:questions(*)').eq('profile_id', current.id),
+        supabase.from('matches').select('*').or(`user_a_id.eq.${current.id},user_b_id.eq.${current.id}`),
+        supabase.from('messages').select('*').eq('sender_id', current.id),
       ]);
 
-      // Surface the first error encountered rather than silently dropping data.
-      const firstError = profileRes.error ?? resultsRes.error ?? matchesRes.error ?? messagesRes.error;
+      const firstError =
+        profileRes.error ?? resultsRes.error ?? matchesRes.error ?? messagesRes.error;
       if (firstError) throw new Error(firstError.message);
 
       const exportPayload = {
@@ -198,23 +399,21 @@ export default function ProfileScreen(): React.ReactElement {
       };
 
       const json = JSON.stringify(exportPayload, null, 2);
-      const filename = `roastme-data-${profile.username}-${Date.now()}.json`;
+      const filename = `roastme-data-${current.username}-${Date.now()}.json`;
       const file = new File(Paths.cache, filename);
       file.create();
       file.write(json);
-      const fileUri = file.uri;
 
       const canShare = await Sharing.isAvailableAsync();
       if (!canShare) {
-        // Simulator / unsupported platform: inform the user.
         Alert.alert(t('profile.downloadData'), t('errors.sharingNotAvailable'));
         return;
       }
 
-      await Sharing.shareAsync(fileUri, {
+      await Sharing.shareAsync(file.uri, {
         mimeType: 'application/json',
         dialogTitle: t('profile.downloadData'),
-        UTI: 'public.json', // iOS only — ignored on Android
+        UTI: 'public.json',
       });
     } catch (err) {
       Alert.alert(
@@ -226,25 +425,26 @@ export default function ProfileScreen(): React.ReactElement {
     }
   };
 
+  // ── Delete account ────────────────────────────────────────────────────────
+
   const handleDeleteAccount = async (): Promise<void> => {
-    if (!profile || deleteConfirmText !== profile.username) return;
+    const current = profileRef.current;
+    if (!current || deleteConfirmText !== current.username) return;
 
     setIsDeletingAccount(true);
     try {
-      // Soft delete — sets deleted_at, RLS policies hide the profile
       const { error } = await supabase
         .from('profiles')
         .update({ deleted_at: new Date().toISOString() })
-        .eq('id', profile.id);
+        .eq('id', current.id);
 
       if (error) throw error;
 
-      // Also request auth user deletion via Edge Function (C-7 GDPR fix)
       await supabase.functions.invoke('delete-auth-user', {
-        body: { user_id: profile.id },
+        body: { user_id: current.id },
       }).catch(() => {
-        // Non-blocking — the profile is already soft-deleted
-        // Admin can clean up auth.users in batch if this fails
+        // Non-blocking — the profile is already soft-deleted;
+        // admin can clean up auth.users in a batch sweep if this fails.
       });
 
       await signOut();
@@ -262,16 +462,14 @@ export default function ProfileScreen(): React.ReactElement {
       '',
       [
         { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('auth.logout'),
-          style: 'destructive',
-          onPress: () => void signOut(),
-        },
+        { text: t('auth.logout'), style: 'destructive', onPress: () => void signOut() },
       ]
     );
   };
 
   const currentLang = i18n.language === 'fr' ? 'Français' : 'English';
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -282,27 +480,52 @@ export default function ProfileScreen(): React.ReactElement {
       >
         {/* ── User Info Header ───────────────────────────────────── */}
         <View style={styles.profileHeader}>
-          <Avatar
-            uri={profile?.avatar_url}
-            name={profile?.display_name}
-            size="xl"
-            isPremium={profile?.is_premium}
-          />
+          {/* Tappable avatar with camera overlay */}
+          <Pressable
+            onPress={() => void handleAvatarPress()}
+            disabled={isUploadingAvatar}
+            accessibilityLabel={t('profile.changeAvatar')}
+            accessibilityRole="button"
+            style={styles.avatarWrapper}
+          >
+            <Avatar
+              uri={profile?.avatar_url}
+              name={profile?.display_name}
+              size="xl"
+              isPremium={profile?.is_premium}
+            />
+            {/* Camera badge overlay */}
+            <View style={styles.cameraOverlay} pointerEvents="none">
+              {isUploadingAvatar ? (
+                <ActivityIndicator size="small" color={colors.textPrimary} />
+              ) : (
+                <Text style={styles.cameraIcon}>📷</Text>
+              )}
+            </View>
+          </Pressable>
+
           <Text style={styles.displayName}>{profile?.display_name ?? '—'}</Text>
           <Text style={styles.username}>@{profile?.username ?? '—'}</Text>
           {profile?.bio ? (
             <Text style={styles.bio} numberOfLines={3}>{profile.bio}</Text>
           ) : null}
+
+          {/* Edit profile button */}
+          <Button
+            label={t('profile.editProfile')}
+            variant="secondary"
+            size="sm"
+            onPress={openEditModal}
+            accessibilityLabel={t('profile.editProfile')}
+            style={styles.editProfileButton}
+          />
         </View>
 
         {/* ── Stats ──────────────────────────────────────────────── */}
         <Card style={styles.statsCard}>
           <Text style={styles.sectionTitle}>{t('profile.stats')}</Text>
           <View style={styles.statsRow}>
-            <StatItem
-              value={profile?.roast_count ?? 0}
-              label={t('profile.roastsReceived')}
-            />
+            <StatItem value={profile?.roast_count ?? 0} label={t('profile.roastsReceived')} />
             <View style={styles.statsDivider} />
             <StatItem
               value={matchesCount !== null ? matchesCount : '—'}
@@ -444,6 +667,117 @@ export default function ProfileScreen(): React.ReactElement {
         />
       </ScrollView>
 
+      {/* ── Edit Profile Modal ─────────────────────────────────── */}
+      <Modal
+        visible={editModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setEditModalVisible(false)}
+        accessibilityViewIsModal
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.editModal}>
+            <Text style={styles.editModalTitle}>{t('profile.editProfileTitle')}</Text>
+
+            {/* Display name */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>{t('profile.displayName')}</Text>
+              <TextInput
+                style={styles.fieldInput}
+                value={editForm.displayName}
+                onChangeText={(text) =>
+                  setEditForm((prev) => ({ ...prev, displayName: text }))
+                }
+                placeholder={profile?.display_name ?? ''}
+                placeholderTextColor={colors.textMuted}
+                maxLength={DISPLAY_NAME_MAX}
+                autoCapitalize="words"
+                accessibilityLabel={t('profile.displayName')}
+              />
+            </View>
+
+            {/* Bio */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>{t('profile.bio')}</Text>
+              <TextInput
+                style={[styles.fieldInput, styles.bioInput]}
+                value={editForm.bio}
+                onChangeText={(text) =>
+                  setEditForm((prev) => ({ ...prev, bio: text }))
+                }
+                placeholder={t('profile.bioPlaceholder')}
+                placeholderTextColor={colors.textMuted}
+                maxLength={BIO_MAX}
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
+                accessibilityLabel={t('profile.bio')}
+              />
+              <Text style={styles.charCount}>
+                {editForm.bio.length}/{BIO_MAX}
+              </Text>
+            </View>
+
+            {/* Gender */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>{t('profile.gender')}</Text>
+              <View style={styles.chipRow}>
+                {GENDER_OPTIONS.map(({ value, labelKey }) => (
+                  <GenderChip
+                    key={value}
+                    label={t(labelKey)}
+                    selected={editForm.gender === value}
+                    onPress={() =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        gender: prev.gender === value ? null : value,
+                      }))
+                    }
+                  />
+                ))}
+              </View>
+            </View>
+
+            {/* Looking for */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>{t('profile.lookingFor')}</Text>
+              <View style={styles.chipRow}>
+                {LOOKING_FOR_OPTIONS.map(({ value, labelKey }) => (
+                  <GenderChip
+                    key={value}
+                    label={t(labelKey)}
+                    selected={editForm.lookingFor.includes(value)}
+                    onPress={() => toggleLookingFor(value)}
+                  />
+                ))}
+              </View>
+            </View>
+
+            {/* Actions */}
+            <View style={styles.editActions}>
+              <Button
+                label={t('profile.discardChanges')}
+                variant="secondary"
+                size="md"
+                onPress={() => setEditModalVisible(false)}
+                disabled={isSavingProfile}
+                accessibilityLabel={t('profile.discardChanges')}
+                style={styles.editActionButton}
+              />
+              <Button
+                label={t('profile.saveChanges')}
+                variant="primary"
+                size="md"
+                onPress={() => void handleSaveProfile()}
+                isLoading={isSavingProfile}
+                accessibilityLabel={t('profile.saveChanges')}
+                style={styles.editActionButton}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* ── Delete Account Confirmation Modal ──────────────────── */}
       <Modal
         visible={deleteConfirmVisible}
@@ -457,7 +791,8 @@ export default function ProfileScreen(): React.ReactElement {
             <Text style={styles.confirmTitle}>{t('profile.deleteAccount')}</Text>
             <Text style={styles.confirmBody}>{t('profile.deleteConfirm')}</Text>
             <Text style={styles.confirmHint}>
-              {t('profile.deleteConfirm')} <Text style={styles.confirmUsername}>@{profile?.username}</Text>
+              {t('profile.deleteConfirm')}{' '}
+              <Text style={styles.confirmUsername}>@{profile?.username}</Text>
             </Text>
             <TextInput
               style={styles.confirmInput}
@@ -498,7 +833,27 @@ export default function ProfileScreen(): React.ReactElement {
   );
 }
 
-// ─── Sub-components ──────────────────────────────────────────────────────────
+// ─── Gender / looking-for option definitions ──────────────────────────────────
+
+interface GenderOption {
+  value: Gender;
+  labelKey: string;
+}
+
+const GENDER_OPTIONS: GenderOption[] = [
+  { value: 'male', labelKey: 'signup.genderMale' },
+  { value: 'female', labelKey: 'signup.genderFemale' },
+  { value: 'other', labelKey: 'signup.genderOther' },
+  { value: 'prefer_not', labelKey: 'signup.genderPreferNot' },
+];
+
+const LOOKING_FOR_OPTIONS: GenderOption[] = [
+  { value: 'male', labelKey: 'signup.genderMale' },
+  { value: 'female', labelKey: 'signup.genderFemale' },
+  { value: 'other', labelKey: 'signup.genderOther' },
+];
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
 function StatItem({ value, label }: { value: number | string; label: string }): React.ReactElement {
   return (
@@ -524,7 +879,27 @@ function SettingRow({ label, accessibilityLabel, right }: SettingRowProps): Reac
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
+interface GenderChipProps {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+}
+
+function GenderChip({ label, selected, onPress }: GenderChipProps): React.ReactElement {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: selected }}
+      accessibilityLabel={label}
+      style={[styles.chip, selected && styles.chipSelected]}
+    >
+      <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   safeArea: {
@@ -539,10 +914,33 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xxl,
     gap: spacing.md,
   },
+
+  // ── Profile header ──────────────────────────────────────────────────────
   profileHeader: {
     alignItems: 'center',
     paddingVertical: spacing.lg,
     gap: spacing.sm,
+  },
+  avatarWrapper: {
+    position: 'relative',
+    marginBottom: spacing.xs,
+  },
+  cameraOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: colors.background,
+  },
+  cameraIcon: {
+    fontSize: 13,
+    // emoji — no fontFamily override needed
   },
   displayName: {
     fontFamily: typography.fontDisplay,
@@ -563,6 +961,11 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     maxWidth: 280,
   },
+  editProfileButton: {
+    marginTop: spacing.xs,
+  },
+
+  // ── Stats ────────────────────────────────────────────────────────────────
   statsCard: {
     gap: spacing.md,
   },
@@ -592,6 +995,8 @@ const styles = StyleSheet.create({
     height: 40,
     backgroundColor: colors.surfaceBorder,
   },
+
+  // ── Section card ─────────────────────────────────────────────────────────
   section: {
     gap: spacing.sm,
   },
@@ -614,6 +1019,8 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     flex: 1,
   },
+
+  // ── Premium ──────────────────────────────────────────────────────────────
   premiumActive: {
     fontFamily: typography.fontBody,
     fontSize: typography.sizes.md,
@@ -629,10 +1036,14 @@ const styles = StyleSheet.create({
   premiumButton: {
     marginTop: spacing.xs,
   },
+
+  // ── Legal ────────────────────────────────────────────────────────────────
   legalButton: {
     alignSelf: 'flex-start',
     paddingHorizontal: 0,
   },
+
+  // ── Danger zone ──────────────────────────────────────────────────────────
   dangerCard: {
     borderWidth: 1,
     borderColor: colors.error,
@@ -647,13 +1058,96 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginTop: spacing.sm,
   },
+
+  // ── Shared modal backdrop ─────────────────────────────────────────────────
   modalBackdrop: {
     flex: 1,
     backgroundColor: colors.overlay,
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.lg,
+    justifyContent: 'flex-end', // slide up from bottom for edit modal
+    padding: spacing.md,
+    paddingBottom: spacing.xl,
   },
+
+  // ── Edit profile modal ───────────────────────────────────────────────────
+  editModal: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    width: '100%',
+    gap: spacing.md,
+  },
+  editModalTitle: {
+    fontFamily: typography.fontDisplay,
+    fontSize: typography.sizes.xl,
+    color: colors.textPrimary,
+    letterSpacing: 1,
+  },
+  fieldGroup: {
+    gap: spacing.xs,
+  },
+  fieldLabel: {
+    fontFamily: typography.fontBody,
+    fontSize: typography.sizes.sm,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  fieldInput: {
+    backgroundColor: colors.surfaceElevated,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    fontFamily: typography.fontBody,
+    fontSize: typography.sizes.md,
+    color: colors.textPrimary,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+  },
+  bioInput: {
+    minHeight: 80,
+    paddingTop: spacing.sm,
+  },
+  charCount: {
+    fontFamily: typography.fontBody,
+    fontSize: typography.sizes.xs,
+    color: colors.textMuted,
+    alignSelf: 'flex-end',
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  chip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    borderWidth: 1.5,
+    borderColor: colors.surfaceBorder,
+  },
+  chipSelected: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryOverlay,
+  },
+  chipLabel: {
+    fontFamily: typography.fontBody,
+    fontSize: typography.sizes.sm,
+    color: colors.textSecondary,
+  },
+  chipLabelSelected: {
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  editActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  editActionButton: {
+    flex: 1,
+  },
+
+  // ── Delete confirm modal ─────────────────────────────────────────────────
   confirmModal: {
     backgroundColor: colors.surface,
     borderRadius: borderRadius.xl,

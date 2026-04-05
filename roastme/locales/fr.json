@@ -143,7 +143,9 @@
     "actionPass": "Passer {{name}}",
     "actionLikeFallback": "Liker cet utilisateur",
     "actionPassFallback": "Passer cet utilisateur",
-    "retryLoading": "Réessayer le chargement des matchs"
+    "retryLoading": "Réessayer le chargement des matchs",
+    "findMatchesNow": "Trouver des matchs",
+    "findingMatches": "Recherche en cours..."
   },
   "chat": {
     "title": "Messages",
@@ -176,7 +178,18 @@
     "termsOfService": "Conditions d'utilisation",
     "privacyPolicy": "Politique de confidentialité",
     "reportBug": "Signaler un bug",
-    "openSettings": "Ouvrir les réglages"
+    "openSettings": "Ouvrir les réglages",
+    "changeAvatar": "Changer la photo",
+    "uploadingAvatar": "Upload en cours...",
+    "avatarUpdated": "Photo de profil mise à jour",
+    "editProfileTitle": "Modifier le profil",
+    "displayName": "Prénom / Pseudo",
+    "bio": "Bio",
+    "bioPlaceholder": "Dis quelque chose sur toi...",
+    "gender": "Genre",
+    "lookingFor": "Je cherche à matcher avec",
+    "saveChanges": "Enregistrer",
+    "discardChanges": "Annuler"
   },
   "moderation": {
     "report": "Signaler",
@@ -254,6 +267,12 @@
     "suspended": "Ton compte est temporairement suspendu.",
     "notificationsPermissionDenied": "Permissions de notification refusées. Active-les dans les réglages.",
     "notificationsCannotRevoke": "Pour désactiver complètement les notifications, va dans les réglages de ton téléphone.",
-    "sharingNotAvailable": "Le partage n'est pas disponible sur cet appareil."
+    "sharingNotAvailable": "Le partage n'est pas disponible sur cet appareil.",
+    "avatarUploadFailed": "Impossible de mettre à jour la photo. Réessaie.",
+    "profileUpdateFailed": "Impossible d'enregistrer les modifications. Réessaie.",
+    "cameraPermissionDenied": "Accès à la galerie refusé. Active-le dans les réglages.",
+    "displayNameRequired": "Le prénom / pseudo est requis.",
+    "displayNameTooLong": "Le prénom / pseudo ne peut pas dépasser 50 caractères.",
+    "bioTooLong": "La bio ne peut pas dépasser 200 caractères."
   }
 }

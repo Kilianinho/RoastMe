@@ -15,6 +15,7 @@ import { useMatches } from '@/hooks/useMatches';
 import { MatchCard } from '@/components/matching/MatchCard';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { supabase } from '@/lib/supabase';
 import type { Gender } from '@/types/database';
 
 type GenderFilter = 'all' | Gender;
@@ -45,12 +46,37 @@ export default function MatchesScreen(): React.ReactElement {
   } = useMatches();
 
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isTriggeringMatch, setIsTriggeringMatch] = useState(false);
+  const [triggerError, setTriggerError] = useState<string | null>(null);
 
   const onRefresh = useCallback(async (): Promise<void> => {
     setIsRefreshing(true);
     await refetch();
     setIsRefreshing(false);
   }, [refetch]);
+
+  /**
+   * Manually invoke the compute-matches Edge Function, then refresh the list.
+   * Useful when the matches list is empty and the user doesn't want to wait for
+   * the next 15-minute cron tick.
+   */
+  const onTriggerCompute = useCallback(async (): Promise<void> => {
+    setIsTriggeringMatch(true);
+    setTriggerError(null);
+    try {
+      const { error } = await supabase.functions.invoke('compute-matches', {
+        method: 'POST',
+        body: {},
+      });
+      if (error) throw error;
+      await refetch();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : t('common.error');
+      setTriggerError(message);
+    } finally {
+      setIsTriggeringMatch(false);
+    }
+  }, [refetch, t]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -96,7 +122,12 @@ export default function MatchesScreen(): React.ReactElement {
         ) : error ? (
           <ErrorState message={t('common.error')} onRetry={() => void refetch()} t={t} />
         ) : matches.length === 0 ? (
-          <EmptyState t={t} />
+          <EmptyState
+            t={t}
+            onTriggerCompute={() => void onTriggerCompute()}
+            isTriggeringMatch={isTriggeringMatch}
+            triggerError={triggerError}
+          />
         ) : (
           <>
             {matches.map((match, index) => {
@@ -125,12 +156,39 @@ export default function MatchesScreen(): React.ReactElement {
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
-function EmptyState({ t }: { t: (key: string) => string }): React.ReactElement {
+interface EmptyStateProps {
+  t: (key: string) => string;
+  onTriggerCompute: () => void;
+  isTriggeringMatch: boolean;
+  triggerError: string | null;
+}
+
+function EmptyState({
+  t,
+  onTriggerCompute,
+  isTriggeringMatch,
+  triggerError,
+}: EmptyStateProps): React.ReactElement {
   return (
     <View style={styles.emptyState} accessibilityLabel={t('matches.noMatches')}>
       <Text style={styles.emptyEmoji}>💔</Text>
       <Text style={styles.emptyTitle}>{t('matches.noMatches')}</Text>
       <Text style={styles.emptySubtitle}>{t('matches.noMatchesSubtitle')}</Text>
+
+      {/* Manual trigger — lets users skip the 15-min cron wait */}
+      <Button
+        label={isTriggeringMatch ? t('matches.findingMatches') : t('matches.findMatchesNow')}
+        variant="secondary"
+        size="sm"
+        onPress={onTriggerCompute}
+        disabled={isTriggeringMatch}
+        accessibilityLabel={t('matches.findMatchesNow')}
+        style={styles.triggerButton}
+      />
+
+      {triggerError !== null && (
+        <Text style={styles.triggerError}>{triggerError}</Text>
+      )}
     </View>
   );
 }
@@ -253,6 +311,16 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
+    maxWidth: 280,
+  },
+  triggerButton: {
+    marginTop: spacing.sm,
+  },
+  triggerError: {
+    fontFamily: typography.fontBody,
+    fontSize: typography.sizes.sm,
+    color: colors.error,
+    textAlign: 'center',
     maxWidth: 280,
   },
   paywallCard: {

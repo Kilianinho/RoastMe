@@ -143,7 +143,9 @@
     "actionPass": "Pass {{name}}",
     "actionLikeFallback": "Like this user",
     "actionPassFallback": "Pass this user",
-    "retryLoading": "Retry loading matches"
+    "retryLoading": "Retry loading matches",
+    "findMatchesNow": "Find matches now",
+    "findingMatches": "Looking for matches..."
   },
   "chat": {
     "title": "Messages",
@@ -176,7 +178,18 @@
     "termsOfService": "Terms of Service",
     "privacyPolicy": "Privacy Policy",
     "reportBug": "Report a bug",
-    "openSettings": "Open Settings"
+    "openSettings": "Open Settings",
+    "changeAvatar": "Change photo",
+    "uploadingAvatar": "Uploading...",
+    "avatarUpdated": "Profile photo updated",
+    "editProfileTitle": "Edit profile",
+    "displayName": "First name / Nickname",
+    "bio": "Bio",
+    "bioPlaceholder": "Tell people something about you...",
+    "gender": "Gender",
+    "lookingFor": "Looking to match with",
+    "saveChanges": "Save",
+    "discardChanges": "Cancel"
   },
   "moderation": {
     "report": "Report",
@@ -254,6 +267,12 @@
     "suspended": "Your account is temporarily suspended.",
     "notificationsPermissionDenied": "Notification permissions denied. Enable them in Settings.",
     "notificationsCannotRevoke": "To fully disable notifications, go to your phone's Settings.",
-    "sharingNotAvailable": "Sharing is not available on this device."
+    "sharingNotAvailable": "Sharing is not available on this device.",
+    "avatarUploadFailed": "Could not update photo. Please try again.",
+    "profileUpdateFailed": "Could not save changes. Please try again.",
+    "cameraPermissionDenied": "Gallery access denied. Enable it in Settings.",
+    "displayNameRequired": "First name / nickname is required.",
+    "displayNameTooLong": "First name / nickname cannot exceed 50 characters.",
+    "bioTooLong": "Bio cannot exceed 200 characters."
   }
 }
