@@ -15,6 +15,7 @@
     "copy": "Copy",
     "copied": "Copied!",
     "seeMore": "See more",
+    "seeLess": "See less",
     "premium": "Premium",
     "free": "Free",
     "ok": "OK"
@@ -97,7 +98,8 @@
     "completeSubtitle": "Here are your funniest answers",
     "createOwn": "Create your own profile",
     "createOwnSubtitle": "To see what your friends think about you",
-    "seeCompatibility": "See if you're compatible"
+    "seeCompatibility": "See if you're compatible",
+    "seeAllAnswers": "See all answers"
   },
   "home": {
     "tab": "Home",

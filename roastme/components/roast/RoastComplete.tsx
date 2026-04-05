@@ -9,7 +9,7 @@
  * - Secondary CTA: "Voir si vous êtes compatibles" (only when authenticated)
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -157,6 +157,7 @@ export function RoastComplete({
 }: RoastCompleteProps): React.ReactElement {
   const { t } = useTranslation();
   const router = useRouter();
+  const [showAll, setShowAll] = useState(false);
 
   // Pick up to FUNKY_ANSWER_COUNT answers at random for the recap
   const recapAnswers = React.useMemo((): AnswerRecap[] => {
@@ -164,6 +165,8 @@ export function RoastComplete({
     const shuffled = [...answers].sort(() => Math.random() - 0.5);
     return shuffled.slice(0, FUNKY_ANSWER_COUNT);
   }, [answers]);
+
+  const displayedAnswers = showAll ? answers : recapAnswers;
 
   function handleCreateProfile(): void {
     router.push('/');
@@ -191,12 +194,27 @@ export function RoastComplete({
       </Animated.Text>
 
       {/* Recap cards */}
-      {recapAnswers.length > 0 && (
+      {displayedAnswers.length > 0 && (
         <View style={styles.recapContainer}>
-          {recapAnswers.map((item, index) => (
-            <RecapCard key={index} item={item} index={index} />
+          {displayedAnswers.map((item, index) => (
+            <RecapCard key={`${showAll}-${index}`} item={item} index={index} />
           ))}
         </View>
+      )}
+
+      {/* Show all toggle */}
+      {answers.length > FUNKY_ANSWER_COUNT && (
+        <Animated.View entering={FadeIn.delay(700).duration(300)}>
+          <TouchableOpacity
+            style={styles.showAllButton}
+            onPress={() => setShowAll((prev) => !prev)}
+            accessibilityRole="button"
+          >
+            <Text style={styles.showAllText}>
+              {showAll ? t('common.seeLess') : t('roast.seeAllAnswers')}
+            </Text>
+          </TouchableOpacity>
+        </Animated.View>
       )}
 
       {/* Divider */}
@@ -309,6 +327,17 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   recapAnswerText: {
+    fontFamily: typography.fontBody,
+    fontSize: typography.sizes.sm,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  showAllButton: {
+    alignSelf: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  showAllText: {
     fontFamily: typography.fontBody,
     fontSize: typography.sizes.sm,
     color: colors.primary,
