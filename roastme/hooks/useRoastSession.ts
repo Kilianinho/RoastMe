@@ -372,16 +372,16 @@ export function useRoastSession(): UseRoastSessionReturn {
         });
       }
 
-      // Trigger aggregate-roast Edge Function (fire-and-forget — DB trigger handles it)
-      // The edge function is called asynchronously; we don't block on it.
-      supabase.functions
-        .invoke('aggregate-roast', { body: { roast_session_id: sessionId } })
-        .catch((fnErr: unknown) => {
-          logger.warn('useRoastSession: aggregate-roast invocation failed', {
-            error: String(fnErr),
-            sessionId,
-          });
+      // Trigger aggregate-roast Edge Function — await to ensure results are ready
+      const { error: fnError } = await supabase.functions
+        .invoke('aggregate-roast', { body: { roast_session_id: sessionId } });
+
+      if (fnError) {
+        logger.warn('useRoastSession: aggregate-roast failed', {
+          error: fnError.message,
+          sessionId,
         });
+      }
 
       logger.info('useRoastSession: answers submitted successfully', {
         sessionId,
